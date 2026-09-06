@@ -214,30 +214,35 @@ export default function App() {
           api.getChallenges(),
         ]);
 
-        if (Array.isArray(latestPosts)) {
-          setPosts((prevPosts) => {
-            const prevSerialized = JSON.stringify(prevPosts);
-            const nextSerialized = JSON.stringify(latestPosts);
-            if (prevSerialized !== nextSerialized) {
-              if (isInitialLoadDoneRef.current) {
-                const newPosts = latestPosts.filter(
-                  (p) => !knownPostIdsRef.current.has(p.id)
-                );
-                if (newPosts.length > 0) {
-                  const newestOne = newPosts[0];
-                  addToast(
-                    'info',
-                    '✨ 실시간 새 인증글 도착',
-                    `${newestOne.grade}학년 ${newestOne.classNum}반 ${newestOne.studentName} 학생의 '${newestOne.bookTitle}' 인증이 도착했습니다!`
-                  );
-                }
-              }
-              knownPostIdsRef.current = new Set(latestPosts.map((p) => p.id));
-              return latestPosts;
-            }
-            return prevPosts;
-          });
-        }
+if (Array.isArray(latestPosts)) {
+  const prevIds = posts.map((p) => `${p.id}-${p.createdAt}`);
+  const nextIds = latestPosts.map((p) => `${p.id}-${p.createdAt}`);
+
+  const postsChanged =
+    prevIds.length !== nextIds.length ||
+    prevIds.some((id, index) => id !== nextIds[index]);
+
+  if (postsChanged) {
+    if (isInitialLoadDoneRef.current) {
+      const newPosts = latestPosts.filter(
+        (p) => !knownPostIdsRef.current.has(p.id)
+      );
+
+      if (newPosts.length > 0) {
+        const newestOne = newPosts[0];
+
+        addToast(
+          'info',
+          '✨ 실시간 새 인증글 도착',
+          `${newestOne.grade}학년 ${newestOne.classNum}반 ${newestOne.studentName} 학생의 '${newestOne.bookTitle}' 인증이 도착했습니다!`
+        );
+      }
+    }
+
+    knownPostIdsRef.current = new Set(latestPosts.map((p) => p.id));
+    setPosts(latestPosts);
+  }
+}
 
         if (Array.isArray(latestChallenges) && latestChallenges.length > 0) {
           setChallenges((prevChallenges) => {
@@ -250,7 +255,7 @@ export default function App() {
       } catch (err) {
         // Silent catch for background poll
       }
-    }, 3500);
+    }, 5000);
 
     return () => clearInterval(intervalId);
   }, []);
