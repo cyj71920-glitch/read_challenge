@@ -1,33 +1,5 @@
 import { INITIAL_POSTS, INITIAL_STUDENTS_ROSTER, CHALLENGE_MONTHS } from '../data/challenges.js';
 import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo } from '../types.js';
-import fs from 'fs';
-import path from 'path';
-
-// 로컬 파일 백업 경로 (서버 디스크에 영구 저장)
-const DATA_FILE_PATH = path.join(process.cwd(), 'posts_backup.json');
-
-// 파일에서 게시글 불러오기 함수
-function loadPostsFromFile(): Post[] | null {
-  try {
-    if (fs.existsSync(DATA_FILE_PATH)) {
-      const data = fs.readFileSync(DATA_FILE_PATH, 'utf-8');
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (e) {
-    console.warn('Failed to load posts from file:', e);
-  }
-  return null;
-}
-
-// 파일에 게시글 저장하기 함수
-export function savePostsToFile(posts: Post[]) {
-  try {
-    fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(posts, null, 2), 'utf-8');
-  } catch (e) {
-    console.warn('Failed to save posts to file:', e);
-  }
-}
 
 // Global in-memory storage (singleton instance across Next.js and Express)
 const globalStore = global as unknown as {
@@ -37,10 +9,7 @@ const globalStore = global as unknown as {
   __gasConfigStore?: GasConfig;
 };
 
-// 파일에 저장된 데이터가 있다면 우선적으로 불러오고, 없으면 INITIAL_POSTS 사용
-const initialLoadedPosts = loadPostsFromFile() || [...INITIAL_POSTS];
-
-export const postsStore: Post[] = globalStore.__postsStore || (globalStore.__postsStore = initialLoadedPosts);
+export const postsStore: Post[] = globalStore.__postsStore || (globalStore.__postsStore = [...INITIAL_POSTS]);
 export const rosterStore: StudentRosterItem[] = globalStore.__rosterStore || (globalStore.__rosterStore = [...INITIAL_STUDENTS_ROSTER]);
 export const challengesStore: ChallengeMonthInfo[] = globalStore.__challengesStore || (globalStore.__challengesStore = [...CHALLENGE_MONTHS]);
 export const gasConfigStore: GasConfig = globalStore.__gasConfigStore || (globalStore.__gasConfigStore = {

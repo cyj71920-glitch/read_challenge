@@ -1,4 +1,4 @@
-import { postsStore, challengesStore, gasConfigStore, syncPostToGas, savePostsToFile } from '@/src/lib/serverStore';
+import { postsStore, challengesStore, gasConfigStore, syncPostToGas } from '@/src/lib/serverStore';
 import { Post } from '@/src/types';
 
 export const dynamic = 'force-dynamic';
@@ -112,8 +112,7 @@ export async function POST(request: Request) {
     };
 
     postsStore.unshift(newPost);
-// 파일에 영구 백업 저장
-    savePostsToFile(postsStore);
+
     // Sync to Google Apps Script Web App (Sheet and Drive)
     if (gasConfigStore.webAppUrl) {
       syncPostToGas(newPost).catch((err) => {
