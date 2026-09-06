@@ -502,35 +502,35 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
               취소
             </button>
 
-            <button
-              type="submit"
-              id="btn-submit-post-final"
-              disabled={isSubmitting || !statusInfo.canSubmit}
-              className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none translate-y-[-2px] active:translate-y-[2px] flex items-center gap-2 transition cursor-pointer ${
-                !statusInfo.canSubmit
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed border-slate-400'
-                  : isSubmitting
-                  ? 'bg-yellow-300 text-black cursor-wait'
-                  : 'bg-[#4ADE80] hover:bg-[#3ecf73] text-black'
-              }`}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>실시간 등록 및 구글시트 연동 중...</span>
-                </>
-              ) : !statusInfo.canSubmit ? (
-                <>
-                  <Lock className="w-4 h-4" />
-                  <span>{statusInfo.label} (등록 불가)</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>{activeMonth}월 챌린지 등록하기 🚀</span>
-                </>
-              )}
-            </button>
+           <button
+  type="submit"
+  id="btn-submit-post-final"
+  disabled={isSubmitting || !statusInfo.canSubmit}
+  className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none translate-y-[-2px] active:translate-y-[2px] flex items-center gap-2 transition cursor-pointer ${
+    !statusInfo.canSubmit
+      ? 'bg-slate-300 text-slate-500 cursor-not-allowed border-slate-400'
+      : isSubmitting
+      ? 'bg-yellow-300 text-black cursor-wait'
+      : 'bg-[#4ADE80] hover:bg-[#3ecf73] text-black'
+  }`}
+>
+  {isSubmitting ? (
+    <>
+      <Loader2 className="w-4 h-4 animate-spin" />
+      <span>게시글 등록 중...</span>
+    </>
+  ) : !statusInfo.canSubmit ? (
+    <>
+      <Lock className="w-4 h-4" />
+      <span>{statusInfo.label} (등록 불가)</span>
+    </>
+  ) : (
+    <>
+      <Sparkles className="w-4 h-4" />
+      <span>{activeMonth}월 챌린지 등록하기 🚀</span>
+    </>
+  )}
+</button>
           </div>
         </form>
       </div>

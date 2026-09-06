@@ -53,39 +53,20 @@ export const api = {
       password: postData.password ? String(postData.password).trim() : '1234',
     };
 
-    // 1. Direct client-side sync to Google Apps Script Web App (prevents CORS & 404 on Vercel/serverless)
-    let targetGasUrl = '';
+// 1. Server-side proxy sync & persistence (백엔드 서버를 통해서만 처리하도록 일원화)
     try {
-      const storedGas = localStorage.getItem('library_gas_config');
-      if (storedGas) {
-        const parsed = JSON.parse(storedGas);
-        if (parsed.webAppUrl && parsed.webAppUrl.startsWith('http')) {
-          targetGasUrl = parsed.webAppUrl;
-        }
+      const res = await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPost),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const serverPost = json.post || json;
+        newPost.syncedToGas = serverPost.syncedToGas ?? newPost.syncedToGas;
       }
     } catch {
-      // LocalStorage access safe catch
-    }
-
-    if (targetGasUrl) {
-      try {
-        fetch(targetGasUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'submitPost',
-            sheetName: '독서챌린지_제출기록',
-            post: newPost,
-          }),
-        }).then(() => {
-          newPost.syncedToGas = true;
-        }).catch((err) => {
-          console.warn('Direct GAS sync background warn:', err);
-        });
-      } catch (gasErr) {
-        console.warn('Direct GAS sync error:', gasErr);
-      }
+      // Server offline / static host fallback
     }
 
     // 2. Server-side proxy sync & persistence (if backend is active)
