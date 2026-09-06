@@ -5,6 +5,23 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    // Vercel 서버 재시작 등으로 메모리가 비었거나 초기 데이터만 있을 때 구글 시트에서 최신 데이터를 가져옴
+    if (gasConfigStore.webAppUrl && postsStore.length <= 3) {
+      try {
+        const gasRes = await fetch(gasConfigStore.webAppUrl);
+        if (gasRes.ok) {
+          const gasJson = await gasRes.json();
+          if (gasJson.success && Array.isArray(gasJson.posts) && gasJson.posts.length > 0) {
+            // 시트에서 가져온 데이터로 메모리 스토어 갱신 (최신순 정렬 유지)
+            postsStore.length = 0;
+            postsStore.push(...gasJson.posts);
+          }
+        }
+      } catch (syncErr) {
+        console.warn('Failed to fetch posts from Google Sheets:', syncErr);
+      }
+    }
+
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
     const grade = searchParams.get('grade');
