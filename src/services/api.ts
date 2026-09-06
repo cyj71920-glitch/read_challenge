@@ -8,29 +8,16 @@ export const api = {
     classNum?: number | string;
     search?: string;
   }): Promise<Post[]> {
-    try {
-      const query = new URLSearchParams();
-      if (params?.month !== undefined && params.month !== 'all') query.set('month', String(params.month));
-      if (params?.grade !== undefined && params.grade !== 'all') query.set('grade', String(params.grade));
-      if (params?.classNum !== undefined && params.classNum !== 'all') query.set('classNum', String(params.classNum));
-      if (params?.search) query.set('search', params.search);
+    const query = new URLSearchParams();
+    if (params?.month !== undefined && params.month !== 'all') query.set('month', String(params.month));
+    if (params?.grade !== undefined && params.grade !== 'all') query.set('grade', String(params.grade));
+    if (params?.classNum !== undefined && params.classNum !== 'all') query.set('classNum', String(params.classNum));
+    if (params?.search) query.set('search', params.search);
 
-      const res = await fetch(`/api/posts?${query.toString()}`);
-      if (!res.ok) throw new Error('게시글을 불러오는데 실패했습니다.');
-      const data = await res.json();
-      return Array.isArray(data) ? data : data.posts || [];
-    } catch {
-      // Local storage fallback
-      const local = localStorage.getItem('reading_challenge_posts');
-      if (local) {
-        try {
-          return JSON.parse(local);
-        } catch {
-          return [];
-        }
-      }
-      return [];
-    }
+    const res = await fetch(`/api/posts?${query.toString()}`);
+    if (!res.ok) throw new Error('게시글을 불러오는데 실패했습니다.');
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.posts || [];
   },
 
   async createPost(postData: Partial<Post>): Promise<Post> {
@@ -53,7 +40,6 @@ export const api = {
       password: postData.password ? String(postData.password).trim() : '1234',
     };
 
-// 1. Server-side proxy sync & persistence (백엔드 서버를 통해서만 처리하도록 일원화)
     try {
       const res = await fetch('/api/posts', {
         method: 'POST',
@@ -66,23 +52,15 @@ export const api = {
         newPost.syncedToGas = serverPost.syncedToGas ?? newPost.syncedToGas;
       }
     } catch {
-      // Server offline / static host fallback
+      // Server offline fallback
     }
 
-    // 2. Robust LocalStorage backup with QuotaExceededError protection
     try {
       const current = await this.getPosts();
       const updated = [newPost, ...current.filter((p) => p.id !== newPost.id)];
       localStorage.setItem('reading_challenge_posts', JSON.stringify(updated));
     } catch (storageErr) {
-      console.warn('LocalStorage quota limit exceeded, saving compressed history:', storageErr);
-      try {
-        const current = await this.getPosts();
-        const trimmed = [newPost, ...current.slice(0, 20)];
-        localStorage.setItem('reading_challenge_posts', JSON.stringify(trimmed));
-      } catch (critErr) {
-        console.error('LocalStorage critical write error:', critErr);
-      }
+      console.warn('LocalStorage limit exceeded:', storageErr);
     }
 
     return newPost;
@@ -98,7 +76,6 @@ export const api = {
       const data = await res.json();
       return data;
     } catch {
-      // Local fallback
       const current = await this.getPosts();
       const target = current.find((p) => p.id === id);
       if (!target) {
@@ -132,7 +109,6 @@ export const api = {
       const json = await res.json();
       return json.post || json;
     } catch (e: any) {
-      // fallback for local storage
       const current = await this.getPosts();
       const index = current.findIndex((p) => p.id === id);
       if (index === -1) {
@@ -156,7 +132,6 @@ export const api = {
   },
 
   async deletePost(id: string, password?: string, isAdmin?: boolean): Promise<{ success: boolean; message?: string }> {
-    // 1. Immediately remove from localStorage for instant feedback
     try {
       const localStr = localStorage.getItem('reading_challenge_posts');
       if (localStr) {
@@ -169,7 +144,6 @@ export const api = {
       console.warn('LocalStorage remove warning:', e);
     }
 
-    // 2. Call server endpoint
     try {
       const res = await fetch(`/api/posts/${id}`, {
         method: 'DELETE',
@@ -187,7 +161,6 @@ export const api = {
       if (err.message && err.message.includes('비밀번호')) {
         throw err;
       }
-      console.warn('Server delete call error, handled gracefully:', err);
     }
 
     return { success: true, message: '게시글이 삭제되었습니다.' };
@@ -202,9 +175,7 @@ export const api = {
         const json = await res.json();
         return json.post || json;
       }
-    } catch {
-      // fallback
-    }
+    } catch {}
     const current = await this.getPosts();
     const target = current.find((p) => p.id === id);
     if (target) {
@@ -215,11 +186,7 @@ export const api = {
     throw new Error('게시글을 찾을 수 없습니다.');
   },
 
-  async addComment(
-    id: string,
-    text: string,
-    author: string
-  ): Promise<Post> {
+  async addComment(id: string, text: string, author: string): Promise<Post> {
     const newComment = {
       id: `c_${Date.now()}`,
       author,
@@ -237,9 +204,7 @@ export const api = {
         const json = await res.json();
         return json.post || json;
       }
-    } catch {
-      // fallback
-    }
+    } catch {}
 
     const current = await this.getPosts();
     const target = current.find((p) => p.id === id);
@@ -260,9 +225,7 @@ export const api = {
         const json = await res.json();
         return json.post || json;
       }
-    } catch {
-      // fallback
-    }
+    } catch {}
 
     const current = await this.getPosts();
     const target = current.find((p) => p.id === postId);
@@ -274,7 +237,6 @@ export const api = {
     throw new Error('게시글을 찾을 수 없습니다.');
   },
 
-  // Roster
   async getRoster(): Promise<StudentRosterItem[]> {
     try {
       const res = await fetch('/api/roster');
@@ -282,43 +244,28 @@ export const api = {
         const json = await res.json();
         return Array.isArray(json) ? json : json.roster || [];
       }
-    } catch {
-      // fallback
-    }
+    } catch {}
     const local = localStorage.getItem('reading_challenge_roster');
     if (local) {
-      try {
-        return JSON.parse(local);
-      } catch {
-        return [];
-      }
+      try { return JSON.parse(local); } catch {}
     }
     return [];
   },
 
   async saveRoster(students: StudentRosterItem[]): Promise<StudentRosterItem[]> {
     try {
-      const res = await fetch('/api/roster', {
+      await fetch('/api/roster', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ students }),
       });
-      if (res.ok) {
-        const json = await res.json();
-        console.log('Saved roster to server:', json);
-      }
-    } catch (e) {
-      console.warn('Server roster save error:', e);
-    }
+    } catch {}
     try {
       localStorage.setItem('reading_challenge_roster', JSON.stringify(students));
-    } catch (e) {
-      console.warn('LocalStorage roster save error:', e);
-    }
+    } catch {}
     return students;
   },
 
-  // GAS Configuration Persistence (Server + LocalStorage fallback)
   async getGasConfig(): Promise<GasConfig> {
     try {
       const res = await fetch('/api/gas/config');
@@ -329,17 +276,11 @@ export const api = {
           return json;
         }
       }
-    } catch {
-      // Offline / serverless fallback
-    }
-
+    } catch {}
     const local = localStorage.getItem('library_gas_config');
     if (local) {
-      try {
-        return JSON.parse(local);
-      } catch {}
+      try { return JSON.parse(local); } catch {}
     }
-
     return {
       webAppUrl: '',
       adminEmail: 'cyj71920@gmail.com',
@@ -351,10 +292,7 @@ export const api = {
   async saveGasConfig(config: GasConfig): Promise<GasConfig> {
     try {
       localStorage.setItem('library_gas_config', JSON.stringify(config));
-    } catch (e) {
-      console.warn('LocalStorage gas config save error:', e);
-    }
-
+    } catch {}
     try {
       const res = await fetch('/api/gas/config', {
         method: 'POST',
@@ -365,14 +303,10 @@ export const api = {
         const data = await res.json();
         return data.config || config;
       }
-    } catch {
-      // Serverless / static host fallback
-    }
-
+    } catch {}
     return config;
   },
 
-  // Google Sheets (GAS) Bulk Sync
   async syncToGoogleSheets(data: {
     webAppUrl: string;
     sheetName?: string;
@@ -381,8 +315,6 @@ export const api = {
     if (!data.webAppUrl || !data.webAppUrl.startsWith('http')) {
       throw new Error('올바른 Google Apps Script Web App URL을 설정해주세요.');
     }
-
-    // 1. Try server proxy first (avoids browser CORS and handles server-side logging)
     try {
       const res = await fetch('/api/gas/sync', {
         method: 'POST',
@@ -397,11 +329,7 @@ export const api = {
         const json = await res.json();
         return { success: true, count: json.count || data.posts.length, message: '구글 시트 동기화 완료' };
       }
-    } catch {
-      // Server proxy unavailable, fallback to client direct fetch
-    }
-
-    // 2. Direct client fetch fallback (no-cors mode + text/plain ensures browser compatibility with GAS)
+    } catch {}
     try {
       await fetch(data.webAppUrl, {
         method: 'POST',
@@ -413,14 +341,12 @@ export const api = {
           posts: data.posts,
         }),
       });
-      return { success: true, count: data.posts.length, message: '브라우저 직접 전송 완료 (시트에 반영됩니다)' };
+      return { success: true, count: data.posts.length, message: '브라우저 직접 전송 완료' };
     } catch (err: any) {
-      console.error('GAS Direct POST error:', err);
       throw new Error('구글 시트 전송 실패: ' + (err.message || '네트워크 오류'));
     }
   },
 
-  // Challenges Management
   async getChallenges(): Promise<ChallengeMonthInfo[]> {
     try {
       const res = await fetch('/api/challenges');
@@ -430,16 +356,10 @@ export const api = {
           return data.challenges;
         }
       }
-    } catch {
-      // Local fallback
-    }
+    } catch {}
     const local = localStorage.getItem('library_challenges');
     if (local) {
-      try {
-        return JSON.parse(local);
-      } catch {
-        // ignore
-      }
+      try { return JSON.parse(local); } catch {}
     }
     return [];
   },
@@ -458,9 +378,7 @@ export const api = {
           return data.challenges;
         }
       }
-    } catch {
-      // Local fallback
-    }
+    } catch {}
     localStorage.setItem('library_challenges', JSON.stringify(challenges));
     return challenges;
   },
@@ -477,14 +395,11 @@ export const api = {
           return data.challenges;
         }
       }
-    } catch {
-      // fallback
-    }
+    } catch {}
     localStorage.removeItem('library_challenges');
     return [];
   },
 
-  // Email Notification for Teacher
   async sendTeacherEmailAlert(data: {
     adminEmail: string;
     month: number;
@@ -498,9 +413,7 @@ export const api = {
         body: JSON.stringify(data),
       });
       if (res.ok) return res.json();
-    } catch {
-      // fallback
-    }
+    } catch {}
     return { success: true };
   },
 };
