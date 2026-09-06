@@ -206,6 +206,46 @@ export default function App() {
 
 useEffect(() => {
   loadData();
+
+  const intervalId = setInterval(async () => {
+    try {
+      const latestPosts = await api.getPosts();
+
+      if (!Array.isArray(latestPosts)) return;
+
+      setPosts((prevPosts) => {
+        // 게시글 수가 달라졌을 때만 업데이트
+        if (latestPosts.length !== prevPosts.length) {
+          const newPosts = latestPosts.filter(
+            (p) => !knownPostIdsRef.current.has(p.id)
+          );
+
+          if (isInitialLoadDoneRef.current && newPosts.length > 0) {
+            const newestOne = newPosts[0];
+
+            addToast(
+              'info',
+              '✨ 실시간 새 인증글 도착',
+              `${newestOne.grade}학년 ${newestOne.classNum}반 ${newestOne.studentName} 학생의 '${newestOne.bookTitle}' 인증이 도착했습니다!`
+            );
+          }
+
+          knownPostIdsRef.current = new Set(
+            latestPosts.map((p) => p.id)
+          );
+
+          return latestPosts;
+        }
+
+        return prevPosts;
+      });
+    } catch (err) {
+      // 자동 확인 중 오류가 나도 화면은 유지
+      console.warn('실시간 게시글 확인 실패:', err);
+    }
+  }, 3500);
+
+  return () => clearInterval(intervalId);
 }, []);
 
   const handleLikePost = async (postId: string) => {
