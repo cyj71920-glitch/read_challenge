@@ -1,0 +1,6 @@
+{
+  "name": "창녕중 독서 챌린지",
+  "description": "창녕중학교 월별 독서 챌린지 및 실시간 독서 챌린지 레이스, 자발적 학생 사진 서평 공유 플랫폼",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
