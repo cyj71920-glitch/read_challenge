@@ -73,12 +73,15 @@ app.get('/api/posts', async (req, res) => {
     );
 
     res.json({ posts: list, total: list.length });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Google Sheets posts load failed:', error);
 
-    // 구글 시트 연결 실패 시 기존 메모리 데이터 사용
-    const list = postsStore.filter((p) => !p.isDeleted);
-    res.json({ posts: list, total: list.length });
+    res.status(500).json({
+      success: false,
+      error: error?.message || String(error),
+      posts: [],
+      total: 0,
+    });
   }
 });
 app.post('/api/posts', async (req, res) => {
