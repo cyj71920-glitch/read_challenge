@@ -1,5 +1,5 @@
-import { INITIAL_POSTS, INITIAL_STUDENTS_ROSTER, CHALLENGE_MONTHS } from '../data/challenges';
-import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo } from '../types';
+import { INITIAL_POSTS, INITIAL_STUDENTS_ROSTER, CHALLENGE_MONTHS } from '../data/challenges.js';
+import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo } from '../types.js';
 
 // Global in-memory storage (singleton instance across Next.js and Express)
 const globalStore = global as unknown as {
