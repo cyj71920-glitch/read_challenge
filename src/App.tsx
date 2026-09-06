@@ -204,61 +204,9 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-
-    const intervalId = setInterval(async () => {
-      try {
-        const [latestPosts, latestChallenges] = await Promise.all([
-          api.getPosts(),
-          api.getChallenges(),
-        ]);
-
-if (Array.isArray(latestPosts)) {
-  const prevIds = posts.map((p) => `${p.id}-${p.createdAt}`);
-  const nextIds = latestPosts.map((p) => `${p.id}-${p.createdAt}`);
-
-  const postsChanged =
-    prevIds.length !== nextIds.length ||
-    prevIds.some((id, index) => id !== nextIds[index]);
-
-  if (postsChanged) {
-    if (isInitialLoadDoneRef.current) {
-      const newPosts = latestPosts.filter(
-        (p) => !knownPostIdsRef.current.has(p.id)
-      );
-
-      if (newPosts.length > 0) {
-        const newestOne = newPosts[0];
-
-        addToast(
-          'info',
-          '✨ 실시간 새 인증글 도착',
-          `${newestOne.grade}학년 ${newestOne.classNum}반 ${newestOne.studentName} 학생의 '${newestOne.bookTitle}' 인증이 도착했습니다!`
-        );
-      }
-    }
-
-    knownPostIdsRef.current = new Set(latestPosts.map((p) => p.id));
-    setPosts(latestPosts);
-  }
-}
-
-        if (Array.isArray(latestChallenges) && latestChallenges.length > 0) {
-          setChallenges((prevChallenges) => {
-            if (JSON.stringify(prevChallenges) !== JSON.stringify(latestChallenges)) {
-              return latestChallenges;
-            }
-            return prevChallenges;
-          });
-        }
-      } catch (err) {
-        // Silent catch for background poll
-      }
-    }, 5000);
-
-    return () => clearInterval(intervalId);
-  }, []);
+useEffect(() => {
+  loadData();
+}, []);
 
   const handleLikePost = async (postId: string) => {
     try {
