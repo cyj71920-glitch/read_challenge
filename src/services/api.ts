@@ -69,23 +69,7 @@ export const api = {
       // Server offline / static host fallback
     }
 
-    // 2. Server-side proxy sync & persistence (if backend is active)
-    try {
-      const res = await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPost),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const serverPost = json.post || json;
-        newPost.syncedToGas = serverPost.syncedToGas ?? newPost.syncedToGas;
-      }
-    } catch {
-      // Server offline / static host fallback
-    }
-
-    // 3. Robust LocalStorage backup with QuotaExceededError protection
+    // 2. Robust LocalStorage backup with QuotaExceededError protection
     try {
       const current = await this.getPosts();
       const updated = [newPost, ...current.filter((p) => p.id !== newPost.id)];
