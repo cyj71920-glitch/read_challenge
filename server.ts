@@ -2,9 +2,9 @@ import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
-import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo } from './src/types';
-import { postsStore, rosterStore, challengesStore, gasConfigStore, syncPostToGas } from './src/lib/serverStore';
-import { CHALLENGE_MONTHS } from './src/data/challenges';
+import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo } from './src/types.js';
+import { postsStore, rosterStore, challengesStore, gasConfigStore, syncPostToGas } from './src/lib/serverStore.js';
+import { CHALLENGE_MONTHS } from './src/data/challenges.js';
 
 dotenv.config();
 
@@ -420,24 +420,20 @@ app.post('/api/challenges/reset', (req, res) => {
 
 // ---------------- VITE MIDDLEWARE & SERVER STARTUP ----------------
 
-async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
+// ---------------- STATIC FILES & SERVER STARTUP ----------------
 
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.join(process.cwd(), 'dist');
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
+if (!process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[독서 챌린지 Full-Stack Server] running on http://0.0.0.0:${PORT}`);
   });
 }
 
-startServer();
+export default app;
