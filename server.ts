@@ -29,36 +29,58 @@ app.get('/api/health', (req, res) => {
 });
 
 // 1. Posts Endpoints
-app.get('/api/posts', (req, res) => {
-  const { month, grade, classNum, search } = req.query;
-  let list = postsStore.filter((p) => !p.isDeleted);
+app.get('/api/posts', async (req, res) => {
+  try {
+    const gasUrl = gasConfigStore.webAppUrl;
 
-  if (month && month !== 'all') {
-    list = list.filter((p) => p.month === Number(month));
-  }
-  if (grade && grade !== 'all') {
-    list = list.filter((p) => p.grade === Number(grade));
-  }
-  if (classNum && classNum !== 'all') {
-    list = list.filter((p) => p.classNum === Number(classNum));
-  }
-  if (search) {
-    const q = String(search).toLowerCase();
-    list = list.filter(
-      (p) =>
-        p.studentName.toLowerCase().includes(q) ||
-        p.bookTitle.toLowerCase().includes(q) ||
-        p.content.toLowerCase().includes(q) ||
-        (p.bookAuthor && p.bookAuthor.toLowerCase().includes(q))
+    if (!gasUrl) {
+      return res.json({ posts: [], total: 0 });
+    }
+
+    const response = await fetch(gasUrl);
+    const data = await response.json();
+
+    let list = Array.isArray(data.posts) ? data.posts : [];
+
+    const { month, grade, classNum, search } = req.query;
+
+    if (month && month !== 'all') {
+      list = list.filter((p: Post) => p.month === Number(month));
+    }
+
+    if (grade && grade !== 'all') {
+      list = list.filter((p: Post) => p.grade === Number(grade));
+    }
+
+    if (classNum && classNum !== 'all') {
+      list = list.filter((p: Post) => p.classNum === Number(classNum));
+    }
+
+    if (search) {
+      const q = String(search).toLowerCase();
+      list = list.filter(
+        (p: Post) =>
+          p.studentName.toLowerCase().includes(q) ||
+          p.bookTitle.toLowerCase().includes(q) ||
+          p.content.toLowerCase().includes(q) ||
+          (p.bookAuthor && p.bookAuthor.toLowerCase().includes(q))
+      );
+    }
+
+    list.sort(
+      (a: Post, b: Post) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
+
+    res.json({ posts: list, total: list.length });
+  } catch (error) {
+    console.error('Google Sheets posts load failed:', error);
+
+    // 구글 시트 연결 실패 시 기존 메모리 데이터 사용
+    const list = postsStore.filter((p) => !p.isDeleted);
+    res.json({ posts: list, total: list.length });
   }
-
-  // Sort newest first
-  list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  res.json({ posts: list, total: list.length });
 });
-
 app.post('/api/posts', async (req, res) => {
   try {
     const postData = req.body;
@@ -119,13 +141,15 @@ app.post('/api/posts', async (req, res) => {
     postsStore.unshift(newPost);
 
     // Sync to Google Apps Script Web App if URL is configured (including photo imageUrl)
-    if (gasConfigStore.webAppUrl) {
-      syncPostToGas(newPost).catch((err) => {
-        console.warn('Background GAS sync dispatch error:', err);
-      });
-    }
+if (gasConfigStore.webAppUrl) {
+  const synced = await syncPostToGas(newPost);
 
-    res.status(201).json({ success: true, post: newPost });
+  if (!synced) {
+    console.warn('Google Sheets sync failed.');
+  }
+}
+
+res.status(201).json({ success: true, post: newPost });
   } catch (error: any) {
     console.error('Post creation error:', error);
     res.status(500).json({ success: false, error: error.message || '글 등록 실패' });
