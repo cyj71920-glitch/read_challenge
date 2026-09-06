@@ -13,7 +13,7 @@ export const postsStore: Post[] = globalStore.__postsStore || (globalStore.__pos
 export const rosterStore: StudentRosterItem[] = globalStore.__rosterStore || (globalStore.__rosterStore = [...INITIAL_STUDENTS_ROSTER]);
 export const challengesStore: ChallengeMonthInfo[] = globalStore.__challengesStore || (globalStore.__challengesStore = [...CHALLENGE_MONTHS]);
 export const gasConfigStore: GasConfig = globalStore.__gasConfigStore || (globalStore.__gasConfigStore = {
-  webAppUrl: process.env.GAS_WEBAPP_URL || '',
+  webAppUrl: process.env.GAS_WEBAPP_URL || 'https://script.google.com/macros/s/AKfycbxPxYe9MphIUysGQZInyk8iwetU5qXnDpwcUn5Z5kaQSLUWYXoe7YKiEtdsZpJTg98/exec',
   adminEmail: process.env.ADMIN_EMAIL || 'cyj71920@gmail.com',
   sheetName: '독서챌린지_제출기록',
   autoEmailAlert: true,
