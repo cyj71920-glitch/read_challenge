@@ -15,17 +15,91 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ---------------- API ROUTES ----------------
+// Admin Password
+app.get('/api/admin/password', async (req, res) => {
+  try {
+    const gasUrl = gasConfigStore.webAppUrl;
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    appName: '창녕중학교 월별 독서 챌린지',
-    framework: 'Next.js App Router & Express Unified',
-    totalPosts: postsStore.filter((p) => !p.isDeleted).length,
-    totalRoster: rosterStore.length,
-    gasConfigured: !!gasConfigStore.webAppUrl,
-  });
+    if (!gasUrl) {
+      return res.json({
+        success: true,
+        password: '1234',
+      });
+    }
+
+    const response = await fetch(
+      gasUrl + '?action=getAdminPassword'
+    );
+
+    const data = await response.json();
+
+    res.json({
+      success: true,
+      password: String(data.password || '1234'),
+    });
+  } catch (error: any) {
+    console.error('관리자 비밀번호 불러오기 실패:', error);
+
+    res.status(500).json({
+      success: false,
+      message: '관리자 비밀번호를 불러오지 못했습니다.',
+      password: '1234',
+    });
+  }
+});
+
+app.post('/api/admin/password', async (req, res) => {
+  try {
+    const password = String(req.body.password || '').trim();
+
+    if (password.length !== 4) {
+      return res.status(400).json({
+        success: false,
+        message: '관리자 비밀번호는 4자리로 입력해주세요.',
+      });
+    }
+
+    const gasUrl = gasConfigStore.webAppUrl;
+
+    if (!gasUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google Apps Script 연결이 설정되지 않았습니다.',
+      });
+    }
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'saveAdminPassword',
+        password: password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      return res.status(500).json({
+        success: false,
+        message: data.message || '관리자 비밀번호 저장에 실패했습니다.',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: '관리자 비밀번호가 저장되었습니다.',
+    });
+  } catch (error: any) {
+    console.error('관리자 비밀번호 저장 실패:', error);
+
+    res.status(500).json({
+      success: false,
+      message: '관리자 비밀번호 저장에 실패했습니다.',
+    });
+  }
 });
 
 // 1. Posts Endpoints
