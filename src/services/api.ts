@@ -20,6 +20,72 @@ export const api = {
     return Array.isArray(data) ? data : data.posts || [];
   },
 
+  // Admin Password
+  async getAdminPassword(): Promise<string> {
+    try {
+      const res = await fetch('/api/admin/password');
+
+      if (!res.ok) {
+        throw new Error('관리자 비밀번호를 불러오는데 실패했습니다.');
+      }
+
+      const data = await res.json();
+
+      return String(data.password || '1234');
+    } catch (error) {
+      console.warn('관리자 비밀번호 불러오기 실패:', error);
+
+      // 서버 연결이 안 될 경우 기존 브라우저 저장값 사용
+      try {
+        return localStorage.getItem('library_admin_password') || '1234';
+      } catch {
+        return '1234';
+      }
+    }
+  },
+
+  async saveAdminPassword(newPassword: string): Promise<boolean> {
+    const password = String(newPassword).trim();
+
+    if (password.length !== 4) {
+      throw new Error('관리자 비밀번호는 4자리로 입력해주세요.');
+    }
+
+    try {
+      const res = await fetch('/api/admin/password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(
+          data.message || '관리자 비밀번호 저장에 실패했습니다.'
+        );
+      }
+
+      // 현재 브라우저에서도 바로 사용할 수 있도록 임시 저장
+      try {
+        localStorage.setItem('library_admin_password', password);
+      } catch {}
+
+      return true;
+    } catch (error) {
+      console.error('관리자 비밀번호 저장 실패:', error);
+
+      // 서버 저장에 실패한 경우 현재 브라우저에만 저장
+      try {
+        localStorage.setItem('library_admin_password', password);
+      } catch {}
+
+      throw error;
+    }
+  },
+
   async createPost(postData: Partial<Post>): Promise<Post> {
     const newPost: Post = {
       id: postData.id || `post_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
