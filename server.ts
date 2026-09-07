@@ -288,23 +288,58 @@ app.put('/api/posts/:id', (req, res) => {
   res.json({ success: true, post, message: '글이 성공적으로 수정되었습니다.' });
 });
 
-app.delete('/api/posts/:id', (req, res) => {
+app.delete('/api/posts/:id', async (req, res) => {
   const { id } = req.params;
   const { password, isAdmin } = req.body || {};
+
   const targetIndex = postsStore.findIndex((p) => p.id === id);
 
   if (targetIndex !== -1) {
     const post = postsStore[targetIndex];
+
     if (!isAdmin && password) {
       const storedPw = post.password || '1234';
+
       if (storedPw !== String(password).trim()) {
-        return res.status(403).json({ success: false, message: '비밀번호가 일치하지 않습니다.' });
+        return res.status(403).json({
+          success: false,
+          message: '비밀번호가 일치하지 않습니다.',
+        });
       }
     }
+
     postsStore.splice(targetIndex, 1);
   }
 
-  res.json({ success: true, message: '글이 성공적으로 삭제되었습니다.' });
+  try {
+    const gasUrl = gasConfigStore.webAppUrl;
+
+    if (gasUrl) {
+      const gasResponse = await fetch(gasUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'deletePost',
+          id,
+        }),
+      });
+
+      const gasData = await gasResponse.json();
+
+      if (!gasResponse.ok || !gasData.success) {
+        console.warn('GAS 게시글 삭제 실패:', gasData);
+      }
+    }
+  } catch (error) {
+    console.warn('GAS 게시글 삭제 요청 실패:', error);
+  }
+
+  res.json({
+    success: true,
+    message: '글이 성공적으로 삭제되었습니다.',
+  });
 });
 
 app.post('/api/posts/:id/like', (req, res) => {
