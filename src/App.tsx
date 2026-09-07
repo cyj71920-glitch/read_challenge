@@ -34,16 +34,21 @@ export default function App() {
     }
   });
 
-  const [adminPassword, setAdminPassword] = useState<string>(() => {
-    try {
-      return localStorage.getItem('library_admin_password') || '1234';
-    } catch {
-      return '1234';
-    }
-  });
-
+const [adminPassword, setAdminPassword] = useState<string>('1234');
   const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState<boolean>(false);
+ // 서버(GAS)에 저장된 관리자 비밀번호 불러오기
+  useEffect(() => {
+    const loadAdminPassword = async () => {
+      try {
+        const password = await api.getAdminPassword();
+        setAdminPassword(password);
+      } catch (error) {
+        console.warn('관리자 비밀번호 불러오기 실패:', error);
+      }
+    };
 
+    loadAdminPassword();
+  }, []);
   // Dynamic Challenge State
   const [challenges, setChallenges] = useState<ChallengeMonthInfo[]>(() => {
     try {
@@ -95,14 +100,15 @@ export default function App() {
     }
   };
 
-  const handleChangeAdminPassword = (newPw: string) => {
+const handleChangeAdminPassword = async (newPw: string) => {
+  try {
+    await api.saveAdminPassword(newPw);
     setAdminPassword(newPw);
-    try {
-      localStorage.setItem('library_admin_password', newPw);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  } catch (error) {
+    console.error('관리자 비밀번호 저장 실패:', error);
+    throw error;
+  }
+};
 
   const handleAdminLoginSuccess = () => {
     setIsAdminAuthenticated(true);
