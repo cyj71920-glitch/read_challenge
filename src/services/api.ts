@@ -303,35 +303,61 @@ export const api = {
     throw new Error('게시글을 찾을 수 없습니다.');
   },
 
-  async getRoster(): Promise<StudentRosterItem[]> {
-    try {
-      const res = await fetch('/api/roster');
-      if (res.ok) {
-        const json = await res.json();
-        return Array.isArray(json) ? json : json.roster || [];
-      }
-    } catch {}
-    const local = localStorage.getItem('reading_challenge_roster');
-    if (local) {
-      try { return JSON.parse(local); } catch {}
+async getRoster(): Promise<StudentRosterItem[]> {
+  try {
+    const res = await fetch('/api/roster');
+
+    if (res.ok) {
+      const json = await res.json();
+      return Array.isArray(json) ? json : json.roster || [];
     }
-    return [];
-  },
+  } catch (error) {
+    console.warn('학생 명부 불러오기 실패:', error);
+  }
 
-  async saveRoster(students: StudentRosterItem[]): Promise<StudentRosterItem[]> {
-    try {
-      await fetch('/api/roster', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ students }),
-      });
-    } catch {}
-    try {
-      localStorage.setItem('reading_challenge_roster', JSON.stringify(students));
-    } catch {}
-    return students;
-  },
+  // 서버 연결이 안 될 경우 기존 브라우저 저장 데이터 사용
+  try {
+    const local = localStorage.getItem('reading_challenge_roster');
 
+    if (local) {
+      return JSON.parse(local);
+    }
+  } catch (error) {
+    console.warn('로컬 학생 명부 불러오기 실패:', error);
+  }
+
+  return [];
+},
+
+async saveRoster(students: StudentRosterItem[]): Promise<StudentRosterItem[]> {
+  const res = await fetch('/api/roster', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ students }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok || !data.success) {
+    throw new Error(
+      data.message || '학생 명부 저장에 실패했습니다.'
+    );
+  }
+
+  // 브라우저에도 백업 저장
+  try {
+    localStorage.setItem(
+      'reading_challenge_roster',
+      JSON.stringify(students)
+    );
+  } catch (error) {
+    console.warn('학생 명부 로컬 백업 저장 실패:', error);
+  }
+
+  return students;
+},
   async getGasConfig(): Promise<GasConfig> {
     try {
       const res = await fetch('/api/gas/config');
