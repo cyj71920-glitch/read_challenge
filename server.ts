@@ -385,67 +385,208 @@ app.delete('/api/posts/:postId/comments/:commentId', (req, res) => {
 });
 
 // 4. Student Roster Management & Status Cross-Check
-app.get('/api/roster', (req, res) => {
-  const { grade, classNum, currentMonth } = req.query;
-  const selectedMonth = currentMonth ? Number(currentMonth) : 9;
+app.get('/api/roster', async (req, res) => {
+  try {
+    const { grade, classNum, currentMonth } = req.query;
+    const selectedMonth = currentMonth ? Number(currentMonth) : 9;
 
-  // Cross-reference submissions with roster
-  const activePosts = postsStore.filter((p) => !p.isDeleted);
+    // Google Apps Script에서 저장된 학생 명부 불러오기
+    const gasUrl = gasConfigStore.webAppUrl;
 
-  const enrichedRoster = rosterStore.map((student) => {
-    const studentSubmissions = activePosts.filter(
-      (p) =>
+    let rosterFromGas: StudentRosterItem[] = [];
+
+    if (gasUrl) {
+      const response = await fetch(gasUrl + '?action=getRoster');
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (data.success && Array.isArray(data.roster)) {
+          rosterFromGas = data.roster;
+        }
+      }
+    }
+
+    // GAS에 명부가 없으면 현재 서버 메모리 명부 사용
+    const baseRoster =
+      rosterFromGas.length > 0 ? rosterFromGas : rosterStore;
+
+    const activePosts = postsStore.filter(p => !p.isDeleted);
+
+    const enrichedRoster = baseRoster.map(student => {
+      const studentSubmissions = activePosts.filter(p =>
         p.grade === student.grade &&
         p.classNum === student.classNum &&
-        (p.studentNum === student.studentNum || p.studentName.trim() === student.name.trim())
-    );
+        (
+          p.studentNum === student.studentNum ||
+          p.studentName.trim() === student.name.trim()
+        )
+      );
 
-    const submittedMonths = Array.from(new Set(studentSubmissions.map((p) => p.month)));
-    const hasSubmittedCurrent = studentSubmissions.some((p) => p.month === selectedMonth);
-    const lastSub = studentSubmissions[0];
+      const submittedMonths = Array.from(
+        new Set(studentSubmissions.map(p => p.month))
+      );
 
-    return {
-      ...student,
-      submissionCount: studentSubmissions.length,
-      submittedMonths,
-      hasSubmittedCurrentMonth: hasSubmittedCurrent,
-      lastSubmittedAt: lastSub ? lastSub.createdAt : undefined,
-    };
-  });
+      const hasSubmittedCurrent = studentSubmissions.some(
+        p => p.month === selectedMonth
+      );
 
-  let filtered = enrichedRoster;
-  if (grade && grade !== 'all') {
-    filtered = filtered.filter((s) => s.grade === Number(grade));
+      const lastSub = studentSubmissions[0];
+
+      return {
+        ...student,
+        submissionCount: studentSubmissions.length,
+        submittedMonths,
+        hasSubmittedCurrentMonth: hasSubmittedCurrent,
+        lastSubmittedAt: lastSub ? lastSub.createdAt : undefined,
+      };
+    });
+
+    let filtered = enrichedRoster;
+
+    if (grade && grade !== 'all') {
+      filtered = filtered.filter(
+        s => s.grade === Number(grade)
+      );
+    }
+
+    if (classNum && classNum !== 'all') {
+      filtered = filtered.filter(
+        s => s.classNum === Number(classNum)
+      );
+    }
+
+    res.json({
+      roster: filtered,
+      totalCount: filtered.length,
+      submittedCount: filtered.filter(
+        s => s.hasSubmittedCurrentMonth
+      ).length,
+      unsubmittedCount: filtered.filter(
+        s => !s.hasSubmittedCurrentMonth
+      ).length,
+    });
+  } catch (error) {
+    console.error('학생 명부 불러오기 실패:', error);
+
+    // GAS 연결에 문제가 있어도 기존 서버 명부로 동작하도록 유지
+    const activePosts = postsStore.filter(p => !p.isDeleted);
+
+    const fallbackRoster = rosterStore.map(student => {
+      const studentSubmissions = activePosts.filter(p =>
+        p.grade === student.grade &&
+        p.classNum === student.classNum &&
+        (
+          p.studentNum === student.studentNum ||
+          p.studentName.trim() === student.name.trim()
+        )
+      );
+
+      const submittedMonths = Array.from(
+        new Set(studentSubmissions.map(p => p.month))
+      );
+
+      const hasSubmittedCurrent = studentSubmissions.some(
+        p => p.month === selectedMonth
+      );
+
+      const lastSub = studentSubmissions[0];
+
+      return {
+        ...student,
+        submissionCount: studentSubmissions.length,
+        submittedMonths,
+        hasSubmittedCurrentMonth: hasSubmittedCurrent,
+        lastSubmittedAt: lastSub ? lastSub.createdAt : undefined,
+      };
+    });
+
+    res.json({
+      roster: fallbackRoster,
+      totalCount: fallbackRoster.length,
+      submittedCount: fallbackRoster.filter(
+        s => s.hasSubmittedCurrentMonth
+      ).length,
+      unsubmittedCount: fallbackRoster.filter(
+        s => !s.hasSubmittedCurrentMonth
+      ).length,
+    });
   }
-  if (classNum && classNum !== 'all') {
-    filtered = filtered.filter((s) => s.classNum === Number(classNum));
-  }
-
-  res.json({
-    roster: filtered,
-    totalCount: filtered.length,
-    submittedCount: filtered.filter((s) => s.hasSubmittedCurrentMonth).length,
-    unsubmittedCount: filtered.filter((s) => !s.hasSubmittedCurrentMonth).length,
-  });
 });
 
-app.post('/api/roster', (req, res) => {
-  const { students } = req.body;
-  if (Array.isArray(students)) {
-    rosterStore.length = 0;
-    rosterStore.push(
-      ...students.map((s, idx) => ({
-        id: s.id || `s-${s.grade}-${s.classNum}-${s.studentNum || idx + 1}`,
+app.post('/api/roster', async (req, res) => {
+  try {
+    const { students } = req.body;
+
+    if (!Array.isArray(students)) {
+      return res.status(400).json({
+        success: false,
+        message: '학생 명부 데이터가 올바르지 않습니다.',
+      });
+    }
+
+    const normalizedStudents: StudentRosterItem[] = students.map(
+      (s, idx) => ({
+        id:
+          s.id ||
+          `s-${s.grade}-${s.classNum}-${s.studentNum || idx + 1}`,
         grade: Number(s.grade) || 1,
         classNum: Number(s.classNum) || 1,
         studentNum: Number(s.studentNum) || idx + 1,
-        name: String(s.name).trim(),
-      }))
+        name: String(s.name || '').trim(),
+      })
     );
-  }
-  res.json({ success: true, count: rosterStore.length });
-});
 
+    // 서버 메모리에도 즉시 반영
+    rosterStore.length = 0;
+    rosterStore.push(...normalizedStudents);
+
+    // Google Apps Script에도 영구 저장
+    const gasUrl = gasConfigStore.webAppUrl;
+
+    if (!gasUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google Apps Script 연결이 설정되지 않았습니다.',
+      });
+    }
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'saveRoster',
+        students: normalizedStudents,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      return res.status(500).json({
+        success: false,
+        message:
+          data.message ||
+          data.error ||
+          'Google Sheets에 학생 명부를 저장하지 못했습니다.',
+      });
+    }
+
+    res.json({
+      success: true,
+      count: normalizedStudents.length,
+    });
+  } catch (error) {
+    console.error('학생 명부 저장 실패:', error);
+
+    res.status(500).json({
+      success: false,
+      message: '학생 명부 저장에 실패했습니다.',
+    });
+  }
+});
 // 5. GAS Web App Configuration & Webhook Proxy
 app.get('/api/gas/config', (req, res) => {
   res.json(gasConfigStore);
