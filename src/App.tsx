@@ -166,7 +166,164 @@ const handleChangeAdminPassword = async (newPw: string) => {
   const handlePostUpdated = (updatedPost: Post) => {
     setPosts((prev) => prev.map((p) => (p.id === updatedPost.id ? updatedPost : p)));
   };
+const [isCompressingExistingImages, setIsCompressingExistingImages] = useState(false);
 
+const compressExistingImage = async (
+  imageUrl: string
+): Promise<{ dataUrl: string; originalSize: number; newSize: number }> => {
+  const response = await fetch(imageUrl);
+
+  if (!response.ok) {
+    throw new Error('사진을 불러오지 못했습니다.');
+  }
+
+  const blob = await response.blob();
+  const originalSize = blob.size;
+
+  const objectUrl = URL.createObjectURL(blob);
+
+  try {
+    const img = new Image();
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('이미지를 읽지 못했습니다.'));
+      img.src = objectUrl;
+    });
+
+    let width = img.width;
+    let height = img.height;
+
+    const MAX_WIDTH = 700;
+    const MAX_HEIGHT = 700;
+
+    if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+      const ratio = Math.min(
+        MAX_WIDTH / width,
+        MAX_HEIGHT / height
+      );
+
+      width = Math.round(width * ratio);
+      height = Math.round(height * ratio);
+    }
+
+    const canvas = document.createElement('canvas');
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('사진 압축 준비에 실패했습니다.');
+    }
+
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+
+    const base64 = dataUrl.split(',')[1] || '';
+    const newSize = Math.round(base64.length * 0.75);
+
+    return {
+      dataUrl,
+      originalSize,
+      newSize,
+    };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
+const handleCompressExistingImages = async () => {
+  if (isCompressingExistingImages) return;
+
+  const confirmed = window.confirm(
+    '기존 게시글 사진을 압축합니다. 백업 시트를 만들어두었는지 확인해주세요. 계속할까요?'
+  );
+
+  if (!confirmed) return;
+
+  setIsCompressingExistingImages(true);
+
+  let successCount = 0;
+  let skipCount = 0;
+  let failCount = 0;
+
+  let originalTotal = 0;
+  let compressedTotal = 0;
+
+  try {
+    for (const post of posts) {
+      const match = String(post.id).match(/^gas-row-(\d+)$/);
+
+      if (!match || !post.imageUrl) {
+        continue;
+      }
+
+      const row = match[1];
+
+      try {
+        const result = await compressExistingImage(post.imageUrl);
+
+        originalTotal += result.originalSize;
+
+        // 압축했는데 오히려 더 커지는 사진은 변경하지 않음
+        if (result.newSize >= result.originalSize) {
+          compressedTotal += result.originalSize;
+          skipCount++;
+          continue;
+        }
+
+        const saveResponse = await fetch(`/api/posts/${row}/image`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageUrl: result.dataUrl,
+          }),
+        });
+
+        const saveData = await saveResponse.json();
+
+        if (!saveResponse.ok || !saveData.success) {
+          throw new Error(
+            saveData.message || '압축 사진 저장에 실패했습니다.'
+          );
+        }
+
+        compressedTotal += result.newSize;
+        successCount++;
+
+        console.log(
+          `사진 압축 완료 - 행 ${row}:`,
+          Math.round(result.originalSize / 1024) + 'KB →',
+          Math.round(result.newSize / 1024) + 'KB'
+        );
+
+        // GAS에 연속 요청을 너무 빠르게 보내지 않음
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      } catch (error) {
+        console.error(`행 ${row} 사진 압축 실패:`, error);
+        failCount++;
+      }
+    }
+
+    const beforeMb = (originalTotal / 1024 / 1024).toFixed(2);
+    const afterMb = (compressedTotal / 1024 / 1024).toFixed(2);
+
+    alert(
+      `기존 사진 압축 완료!\n\n` +
+      `압축 성공: ${successCount}장\n` +
+      `변경 불필요: ${skipCount}장\n` +
+      `실패: ${failCount}장\n\n` +
+      `약 ${beforeMb}MB → ${afterMb}MB`
+    );
+  } finally {
+    setIsCompressingExistingImages(false);
+  }
+};
   // Toast Notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -499,27 +656,46 @@ useEffect(() => {
         )}
 
         {activeView === 'admin' && (
-          <AdminDashboard
-            posts={posts}
-            roster={roster}
-            currentMonth={currentMonth}
-            challenges={challenges}
-            onUpdateChallenges={handleUpdateChallenges}
-            onResetChallenges={handleResetChallenges}
-            onUpdateRoster={handleUpdateRoster}
-            onResetRoster={handleResetRoster}
-            onDeletePost={handleDeletePost}
-            onDeleteComment={handleDeleteComment}
-            onOpenEditPost={handleOpenEditModal}
-            onRefreshData={loadData}
-            onToast={addToast}
-            adminPassword={adminPassword}
-            onChangeAdminPassword={handleChangeAdminPassword}
-            onLogout={handleAdminLogout}
-            previewAllMonths={previewAllMonths}
-            onTogglePreviewAll={() => setPreviewAllMonths((p) => !p)}
-          />
-        )}
+  <div className="space-y-4">
+    <div className="bg-white border-2 border-black rounded-2xl p-4 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+      <button
+        type="button"
+        onClick={handleCompressExistingImages}
+        disabled={isCompressingExistingImages}
+        className="px-4 py-2 rounded-xl border-2 border-black font-black bg-yellow-300 hover:bg-yellow-200 disabled:bg-slate-300 disabled:text-slate-500"
+      >
+        {isCompressingExistingImages
+          ? '기존 사진 압축 중...'
+          : '기존 사진 압축 실행'}
+      </button>
+
+      <p className="mt-2 text-xs font-bold text-slate-600">
+        기존 게시글 사진을 최대 700px, JPEG 품질 0.68로 줄여 다시 저장합니다.
+      </p>
+    </div>
+
+    <AdminDashboard
+      posts={posts}
+      roster={roster}
+      currentMonth={currentMonth}
+      challenges={challenges}
+      onUpdateChallenges={handleUpdateChallenges}
+      onResetChallenges={handleResetChallenges}
+      onUpdateRoster={handleUpdateRoster}
+      onResetRoster={handleResetRoster}
+      onDeletePost={handleDeletePost}
+      onDeleteComment={handleDeleteComment}
+      onOpenEditPost={handleOpenEditModal}
+      onRefreshData={loadData}
+      onToast={addToast}
+      adminPassword={adminPassword}
+      onChangeAdminPassword={handleChangeAdminPassword}
+      onLogout={handleAdminLogout}
+      previewAllMonths={previewAllMonths}
+      onTogglePreviewAll={() => setPreviewAllMonths((p) => !p)}
+    />
+  </div>
+)}
       </main>
 
       <div className="fixed bottom-6 right-6 z-40">

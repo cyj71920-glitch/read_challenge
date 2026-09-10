@@ -239,6 +239,73 @@ app.get('/api/posts/:row/image', async (req, res) => {
     return res.status(500).send('Image load failed');
   }
 });
+// 기존 게시글의 압축된 사진을 Google Sheets에 저장
+app.post('/api/posts/:row/image', async (req, res) => {
+  try {
+    const row = Number(req.params.row);
+    const imageUrl = String(req.body.imageUrl || '');
+
+    if (!row || row < 2) {
+      return res.status(400).json({
+        success: false,
+        message: '올바르지 않은 행 번호입니다.',
+      });
+    }
+
+    if (!imageUrl.startsWith('data:image/')) {
+      return res.status(400).json({
+        success: false,
+        message: '올바른 이미지 데이터가 아닙니다.',
+      });
+    }
+
+    const gasUrl = getGasUrl();
+
+    if (!gasUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google Apps Script 주소가 설정되지 않았습니다.',
+      });
+    }
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'updatePostImage',
+        row: row,
+        imageUrl: imageUrl,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      return res.status(500).json({
+        success: false,
+        message:
+          data.message ||
+          data.error ||
+          '압축된 사진을 저장하지 못했습니다.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      row: row,
+    });
+
+  } catch (error: any) {
+    console.error('기존 사진 저장 실패:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: error?.message || '기존 사진 저장에 실패했습니다.',
+    });
+  }
+});
 app.post('/api/posts', async (req, res) => {
   try {
     const postData = req.body;
