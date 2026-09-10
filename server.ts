@@ -10,6 +10,10 @@ dotenv.config();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+const getGasUrl = () =>
+  gasConfigStore.webAppUrl ||
+  process.env.GAS_WEB_APP_URL ||
+  '';
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -18,8 +22,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Admin Password
 app.get('/api/admin/password', async (req, res) => {
   try {
-    const gasUrl = gasConfigStore.webAppUrl;
-
+const gasUrl = getGasUrl();
     if (!gasUrl) {
       return res.json({
         success: true,
@@ -59,8 +62,7 @@ app.post('/api/admin/password', async (req, res) => {
       });
     }
 
-    const gasUrl = gasConfigStore.webAppUrl;
-
+const gasUrl = getGasUrl();
     if (!gasUrl) {
       return res.status(500).json({
         success: false,
@@ -105,8 +107,7 @@ app.post('/api/admin/password', async (req, res) => {
 // 1. Posts Endpoints
 app.get('/api/posts', async (req, res) => {
   try {
-    const gasUrl = gasConfigStore.webAppUrl;
-
+const gasUrl = getGasUrl();
     if (!gasUrl) {
       return res.json({ posts: [], total: 0 });
     }
@@ -393,8 +394,7 @@ app.delete('/api/posts/:id', async (req, res) => {
   }
 
   try {
-    const gasUrl = gasConfigStore.webAppUrl;
-
+const gasUrl = getGasUrl();
     if (gasUrl) {
       const gasResponse = await fetch(gasUrl, {
         method: 'POST',
@@ -473,8 +473,7 @@ app.get('/api/roster', async (req, res) => {
   try {
 
     // Google Apps Script에서 저장된 학생 명부 불러오기
-    const gasUrl = gasConfigStore.webAppUrl;
-
+const gasUrl = getGasUrl();
     let rosterFromGas: StudentRosterItem[] = [];
 
     if (gasUrl) {
@@ -624,8 +623,7 @@ app.post('/api/roster', async (req, res) => {
     rosterStore.push(...normalizedStudents);
 
     // Google Apps Script에도 영구 저장
-    const gasUrl = gasConfigStore.webAppUrl;
-
+const gasUrl = getGasUrl();
     if (!gasUrl) {
       return res.status(500).json({
         success: false,
