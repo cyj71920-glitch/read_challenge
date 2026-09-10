@@ -80,9 +80,26 @@ const gasUrl = getGasUrl();
       }),
     });
 
-    const data = await response.json();
+    const responseText = await response.text();
 
-    if (!response.ok || !data.success) {
+let data: any;
+
+try {
+  data = JSON.parse(responseText);
+} catch {
+  console.error(
+    'GAS가 JSON이 아닌 응답을 반환했습니다:',
+    response.status,
+    responseText.substring(0, 300)
+  );
+
+  return res.status(502).json({
+    success: false,
+    message: 'Google Apps Script가 일시적으로 정상 응답하지 않았습니다.',
+  });
+}
+
+if (!response.ok || !data.success) {
       return res.status(500).json({
         success: false,
         message: data.message || '관리자 비밀번호 저장에 실패했습니다.',

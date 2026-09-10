@@ -254,14 +254,23 @@ const handleCompressExistingImages = async () => {
   let compressedTotal = 0;
 
   try {
+    const failedRows = new Set([
+  17, 18, 19, 23, 24, 26, 29, 31, 35,
+  45, 48, 51, 52, 54, 55, 56, 57, 58,
+  59, 60, 63, 64, 65, 66, 69, 70, 71, 72
+]);
     for (const post of posts) {
       const match = String(post.id).match(/^gas-row-(\d+)$/);
 
-      if (!match || !post.imageUrl) {
-        continue;
-      }
+if (!match || !post.imageUrl) {
+  continue;
+}
 
-      const row = match[1];
+const row = Number(match[1]);
+
+if (!failedRows.has(row)) {
+  continue;
+}
 
       try {
         const result = await compressExistingImage(post.imageUrl);
@@ -303,7 +312,7 @@ const handleCompressExistingImages = async () => {
         );
 
         // GAS에 연속 요청을 너무 빠르게 보내지 않음
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
       } catch (error) {
         console.error(`행 ${row} 사진 압축 실패:`, error);
         failCount++;
