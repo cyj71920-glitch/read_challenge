@@ -89,8 +89,8 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
       img.src = result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1000;
-        const MAX_HEIGHT = 1000;
+        const MAX_WIDTH = 700;
+        const MAX_HEIGHT = 700;
         let width = img.width;
         let height = img.height;
 
@@ -111,7 +111,7 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
 
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.68);
         setImagePreview(compressedDataUrl);
         setImageUrl(compressedDataUrl);
       };
