@@ -13,7 +13,7 @@ import {
   AlertCircle,
   Clock,
 } from 'lucide-react';
-import { ChallengeMonthInfo } from '../types';
+import { ChallengeMonthInfo, Post } from '../types';
 import { CHALLENGE_MONTHS } from '../data/challenges';
 import { api } from '../services/api';
 import { getChallengeMonthStatus } from '../utils/challengeDate';
@@ -22,7 +22,7 @@ import confetti from 'canvas-confetti';
 interface ChallengeSubmissionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitSuccess: () => void;
+  onSubmitSuccess: (post: Post) => void;
   targetMonth: number;
   challenges?: ChallengeMonthInfo[];
   onErrorToast: (title: string, message?: string) => void;
@@ -162,19 +162,19 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
 
     setIsSubmitting(true);
     try {
-      await api.createPost({
-        grade: Number(grade),
-        classNum: Number(classNum),
-        studentNum: Number(studentNum),
-        studentName: studentName.trim(),
-        bookTitle: bookTitle.trim(),
-        bookAuthor: bookAuthor.trim() || undefined,
-        content: content.trim(),
-        imageUrl,
-        month: activeMonth,
-        challengeTitle: currentChallenge.title,
-        password: password.trim(),
-      });
+      const createdPost = await api.createPost({
+  grade: Number(grade),
+  classNum: Number(classNum),
+  studentNum: Number(studentNum),
+  studentName: studentName.trim(),
+  bookTitle: bookTitle.trim(),
+  bookAuthor: bookAuthor.trim() || undefined,
+  content: content.trim(),
+  imageUrl,
+  month: activeMonth,
+  challengeTitle: currentChallenge.title,
+  password: password.trim(),
+});
 
       confetti({
         particleCount: 80,
@@ -183,9 +183,13 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
         colors: ['#FFD100', '#FF6B00', '#4ADE80', '#3B82F6', '#EF4444'],
       });
 
-      onSuccessToast('🎉 챌린지 글 등록 완료!', `${grade}학년 ${classNum}반 달리기 점수가 상승했습니다!`);
-      onSubmitSuccess();
-      onClose();
+      onSuccessToast(
+  '🎉 챌린지 글 등록 완료!',
+  `${grade}학년 ${classNum}반 달리기 점수가 상승했습니다!`
+);
+
+onSubmitSuccess(createdPost);
+onClose();
     } catch (err: any) {
       console.error('Submission error:', err);
       onErrorToast('등록 실패', err.message || '서버 연결에 실패했습니다.');

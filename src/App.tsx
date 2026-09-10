@@ -183,6 +183,7 @@ const handleChangeAdminPassword = async (newPw: string) => {
   };
 
   const knownPostIdsRef = useRef<Set<string>>(new Set());
+  const latestPostTimeRef = useRef<string | null>(null);
   const isInitialLoadDoneRef = useRef<boolean>(false);
 
   const loadData = async () => {
@@ -194,8 +195,18 @@ const handleChangeAdminPassword = async (newPw: string) => {
         api.getChallenges(),
       ]);
       setPosts(fetchedPosts);
-      knownPostIdsRef.current = new Set(fetchedPosts.map((p) => p.id));
-      setRoster(fetchedRoster);
+
+knownPostIdsRef.current = new Set(
+  fetchedPosts.map((p) => p.id)
+);
+
+// 실시간 새 글 확인을 시작할 기준 시간
+latestPostTimeRef.current =
+  fetchedPosts.length > 0
+    ? fetchedPosts[0].createdAt
+    : new Date().toISOString();
+
+setRoster(fetchedRoster);
       if (fetchedChallenges && fetchedChallenges.length > 0) {
         setChallenges(fetchedChallenges);
       }
@@ -214,44 +225,83 @@ useEffect(() => {
   loadData();
 
   const intervalId = setInterval(async () => {
-    try {
-      const latestPosts = await api.getPosts();
+    // 학생이 다른 탭을 보고 있으면 불필요한 요청을 하지 않음
+    if (document.hidden) {
+      return;
+    }
 
-      if (!Array.isArray(latestPosts)) return;
+    // 최초 데이터 로딩이 아직 끝나지 않았다면 기다림
+    if (!isInitialLoadDoneRef.current) {
+      return;
+    }
+
+    // 최신 게시글 기준 시간이 없다면 기다림
+    if (!latestPostTimeRef.current) {
+      return;
+    }
+
+    try {
+      // 전체 게시글이 아니라
+      // 마지막으로 확인한 시간 이후의 새 글만 요청
+      const newPosts = await api.getNewPosts(
+        latestPostTimeRef.current
+      );
+
+      if (!Array.isArray(newPosts) || newPosts.length === 0) {
+        return;
+      }
 
       setPosts((prevPosts) => {
-        // 게시글 수가 달라졌을 때만 업데이트
-        if (latestPosts.length !== prevPosts.length) {
-          const newPosts = latestPosts.filter(
-            (p) => !knownPostIdsRef.current.has(p.id)
-          );
+        const existingIds = new Set(
+          prevPosts.map((p) => p.id)
+        );
 
-          if (isInitialLoadDoneRef.current && newPosts.length > 0) {
-            const newestOne = newPosts[0];
+        // 이미 화면에 있는 글은 제외
+        const reallyNewPosts = newPosts.filter(
+          (p) => !existingIds.has(p.id)
+        );
 
-            addToast(
-              'info',
-              '✨ 실시간 새 인증글 도착',
-              `${newestOne.grade}학년 ${newestOne.classNum}반 ${newestOne.studentName} 학생의 '${newestOne.bookTitle}' 인증이 도착했습니다!`
-            );
-          }
-
-          knownPostIdsRef.current = new Set(
-            latestPosts.map((p) => p.id)
-          );
-
-          return latestPosts;
+        if (reallyNewPosts.length === 0) {
+          return prevPosts;
         }
 
-        return prevPosts;
+        // 서버에서 최신순으로 오므로 첫 번째가 가장 최근 글
+        const newestOne = reallyNewPosts[0];
+
+        // 다음 확인 때 사용할 최신 시간 갱신
+        latestPostTimeRef.current =
+          newestOne.createdAt;
+
+        // 새로운 글 알림
+        addToast(
+          'info',
+          '✨ 실시간 새 인증글 도착',
+          `${newestOne.grade}학년 ${newestOne.classNum}반 ${newestOne.studentName} 학생의 '${newestOne.bookTitle}' 인증이 도착했습니다!`
+        );
+
+        // 새 글을 기존 게시글 맨 앞에 추가
+        const merged = [
+          ...reallyNewPosts,
+          ...prevPosts,
+        ];
+
+        knownPostIdsRef.current = new Set(
+          merged.map((p) => p.id)
+        );
+
+        return merged;
       });
     } catch (err) {
-      // 자동 확인 중 오류가 나도 화면은 유지
-      console.warn('실시간 게시글 확인 실패:', err);
+      console.warn(
+        '실시간 게시글 확인 실패:',
+        err
+      );
     }
-  }, 3500);
+  }, 10000);
 
-  return () => clearInterval(intervalId);
+  return () => {
+    clearInterval(intervalId);
+  };
 }, []);
 
   const handleLikePost = async (postId: string) => {
@@ -544,7 +594,23 @@ useEffect(() => {
       <ChallengeSubmissionModal
         isOpen={isSubmitModalOpen}
         onClose={() => setIsSubmitModalOpen(false)}
-        onSubmitSuccess={loadData}
+        onSubmitSuccess={(newPost) => {
+  setPosts((prevPosts) => {
+    const alreadyExists = prevPosts.some(
+      (p) => p.id === newPost.id
+    );
+
+    if (alreadyExists) {
+      return prevPosts;
+    }
+
+    return [newPost, ...prevPosts];
+  });
+
+  knownPostIdsRef.current.add(newPost.id);
+
+  latestPostTimeRef.current = newPost.createdAt;
+}}
         targetMonth={activeSubmissionMonth}
         challenges={challenges}
         onErrorToast={(title, msg) => addToast('error', title, msg)}

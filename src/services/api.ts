@@ -19,7 +19,23 @@ export const api = {
     const data = await res.json();
     return Array.isArray(data) ? data : data.posts || [];
   },
+async getNewPosts(after: string): Promise<Post[]> {
+  const query = new URLSearchParams();
 
+  query.set('after', after);
+
+  const res = await fetch(`/api/posts?${query.toString()}`);
+
+  if (!res.ok) {
+    throw new Error('새 게시글을 불러오는데 실패했습니다.');
+  }
+
+  const data = await res.json();
+
+  return Array.isArray(data)
+    ? data
+    : data.posts || [];
+},
   // Admin Password
   async getAdminPassword(): Promise<string> {
     try {
@@ -113,21 +129,40 @@ export const api = {
         body: JSON.stringify(newPost),
       });
       if (res.ok) {
-        const json = await res.json();
-        const serverPost = json.post || json;
-        newPost.syncedToGas = serverPost.syncedToGas ?? newPost.syncedToGas;
-      }
+  const json = await res.json();
+  const serverPost = json.post || json;
+
+  Object.assign(newPost, serverPost);
+}
     } catch {
       // Server offline fallback
     }
 
-    try {
-      const current = await this.getPosts();
-      const updated = [newPost, ...current.filter((p) => p.id !== newPost.id)];
-      localStorage.setItem('reading_challenge_posts', JSON.stringify(updated));
-    } catch (storageErr) {
-      console.warn('LocalStorage limit exceeded:', storageErr);
+try {
+  const saved = localStorage.getItem('reading_challenge_posts');
+
+  let current: Post[] = [];
+
+  if (saved) {
+    const parsed = JSON.parse(saved);
+
+    if (Array.isArray(parsed)) {
+      current = parsed;
     }
+  }
+
+  const updated = [
+    newPost,
+    ...current.filter((p) => p.id !== newPost.id),
+  ];
+
+  localStorage.setItem(
+    'reading_challenge_posts',
+    JSON.stringify(updated)
+  );
+} catch (storageErr) {
+  console.warn('LocalStorage limit exceeded:', storageErr);
+}
 
     return newPost;
   },

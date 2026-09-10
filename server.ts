@@ -116,7 +116,18 @@ app.get('/api/posts', async (req, res) => {
 
     let list = Array.isArray(data.posts) ? data.posts : [];
 
-    const { month, grade, classNum, search } = req.query;
+    const { month, grade, classNum, search, after } = req.query;
+
+    // 실시간 확인용:
+    // 특정 시간 이후에 작성된 새 글만 반환
+    if (after) {
+      const afterTime = new Date(String(after)).getTime();
+
+      list = list.filter((p: Post) => {
+        const createdTime = new Date(p.createdAt).getTime();
+        return createdTime > afterTime;
+      });
+    }
 
     if (month && month !== 'all') {
       list = list.filter((p: Post) => p.month === Number(month));
@@ -132,6 +143,7 @@ app.get('/api/posts', async (req, res) => {
 
     if (search) {
       const q = String(search).toLowerCase();
+
       list = list.filter(
         (p: Post) =>
           p.studentName.toLowerCase().includes(q) ||
@@ -143,10 +155,14 @@ app.get('/api/posts', async (req, res) => {
 
     list.sort(
       (a: Post, b: Post) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime()
     );
 
-    res.json({ posts: list, total: list.length });
+    res.json({
+      posts: list,
+      total: list.length,
+    });
   } catch (error: any) {
     console.error('Google Sheets posts load failed:', error);
 
@@ -386,9 +402,10 @@ app.delete('/api/posts/:postId/comments/:commentId', (req, res) => {
 
 // 4. Student Roster Management & Status Cross-Check
 app.get('/api/roster', async (req, res) => {
+  const { grade, classNum, currentMonth } = req.query;
+  const selectedMonth = currentMonth ? Number(currentMonth) : 9;
+
   try {
-    const { grade, classNum, currentMonth } = req.query;
-    const selectedMonth = currentMonth ? Number(currentMonth) : 9;
 
     // Google Apps Script에서 저장된 학생 명부 불러오기
     const gasUrl = gasConfigStore.webAppUrl;
@@ -697,20 +714,37 @@ app.post('/api/challenges/reset', (req, res) => {
 
 // ---------------- VITE MIDDLEWARE & SERVER STARTUP ----------------
 
-// ---------------- STATIC FILES & SERVER STARTUP ----------------
+async function startServer() {
+  if (process.env.NODE_ENV === 'production') {
+    // 배포 환경: 빌드된 파일 사용
+    const distPath = path.join(process.cwd(), 'dist');
 
-if (process.env.NODE_ENV === 'production') {
-  const distPath = path.join(process.cwd(), 'dist');
-  app.use(express.static(distPath));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+    app.use(express.static(distPath));
+
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    // 로컬 개발 환경: Vite 개발 서버 연결
+    const vite = await createViteServer({
+      server: {
+        middlewareMode: true,
+      },
+      appType: 'spa',
+    });
+
+    app.use(vite.middlewares);
+  }
+
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(
+        `[독서 챌린지 Full-Stack Server] running on http://localhost:${PORT}`
+      );
+    });
+  }
 }
 
-if (!process.env.VERCEL) {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[독서 챌린지 Full-Stack Server] running on http://0.0.0.0:${PORT}`);
-  });
-}
+startServer();
 
 export default app;
