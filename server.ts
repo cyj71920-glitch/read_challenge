@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
-import { createServer as createViteServer } from 'vite';
 import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo } from './src/types.js';
 import { postsStore, rosterStore, challengesStore, gasConfigStore, syncPostToGas } from './src/lib/serverStore.js';
 import { CHALLENGE_MONTHS } from './src/data/challenges.js';
@@ -787,17 +786,16 @@ async function startServer() {
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
-  } else {
-    // 로컬 개발 환경: Vite 개발 서버 연결
-    const vite = await createViteServer({
-      server: {
-        middlewareMode: true,
-      },
-      appType: 'spa',
-    });
+} else {
+  const { createServer: createViteServer } = await import('vite');
 
-    app.use(vite.middlewares);
-  }
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'spa',
+  });
+
+  app.use(vite.middlewares);
+}
 
   if (!process.env.VERCEL) {
     app.listen(PORT, '0.0.0.0', () => {
