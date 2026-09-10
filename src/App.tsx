@@ -254,7 +254,7 @@ const handleCompressExistingImages = async () => {
   let compressedTotal = 0;
 
   try {
-    for (const post of posts) {
+    for (const post of posts.slice(0, 1)) {
       const match = String(post.id).match(/^gas-row-(\d+)$/);
 
       if (!match || !post.imageUrl) {
