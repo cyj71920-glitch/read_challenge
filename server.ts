@@ -159,10 +159,22 @@ app.get('/api/posts', async (req, res) => {
         new Date(a.createdAt).getTime()
     );
 
-    res.json({
-      posts: list,
-      total: list.length,
-    });
+    const postsWithImageUrls = list.map((p: Post) => {
+  const match = String(p.id).match(/^gas-row-(\d+)$/);
+
+  return {
+    ...p,
+    imageUrl:
+      p.imageUrl && match
+        ? `/api/posts/${match[1]}/image`
+        : '',
+  };
+});
+
+res.json({
+  posts: postsWithImageUrls,
+  total: postsWithImageUrls.length,
+});
   } catch (error: any) {
     console.error('Google Sheets posts load failed:', error);
 
@@ -172,6 +184,59 @@ app.get('/api/posts', async (req, res) => {
       posts: [],
       total: 0,
     });
+  }
+});
+app.get('/api/posts/:row/image', async (req, res) => {
+  try {
+    const row = req.params.row;
+
+    const gasUrl =
+      gasConfigStore.webAppUrl ||
+      process.env.GAS_WEB_APP_URL ||
+      '';
+
+    if (!gasUrl) {
+      return res.status(404).send('Image not found');
+    }
+
+    const response = await fetch(
+      `${gasUrl}?action=getPostImage&row=${encodeURIComponent(row)}`
+    );
+
+    const data = await response.json();
+
+    if (!data.success || !data.imageUrl) {
+      return res.status(404).send('Image not found');
+    }
+
+    const imageUrl = String(data.imageUrl);
+
+    if (imageUrl.startsWith('data:image/')) {
+      const matches = imageUrl.match(
+        /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/
+      );
+
+      if (!matches) {
+        return res.status(400).send('Invalid image');
+      }
+
+      const mimeType = matches[1];
+      const buffer = Buffer.from(matches[2], 'base64');
+
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader(
+        'Cache-Control',
+        'public, max-age=86400, s-maxage=86400'
+      );
+
+      return res.send(buffer);
+    }
+
+    return res.redirect(imageUrl);
+
+  } catch (error) {
+    console.error('Image load failed:', error);
+    return res.status(500).send('Image load failed');
   }
 });
 app.post('/api/posts', async (req, res) => {
