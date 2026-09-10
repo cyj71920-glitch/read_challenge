@@ -207,29 +207,45 @@ const compressExistingImage = async (
       height = Math.round(height * ratio);
     }
 
-    const canvas = document.createElement('canvas');
+    let quality = 0.68;
+let dataUrl = '';
 
-    canvas.width = width;
-    canvas.height = height;
+while (true) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
 
-    const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
 
-    if (!ctx) {
-      throw new Error('사진 압축 준비에 실패했습니다.');
-    }
+  if (!ctx) {
+    throw new Error('사진 압축 준비에 실패했습니다.');
+  }
 
-    ctx.drawImage(img, 0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+  dataUrl = canvas.toDataURL('image/jpeg', quality);
 
-    const base64 = dataUrl.split(',')[1] || '';
-    const newSize = Math.round(base64.length * 0.75);
+  // Google Sheets 한 셀의 문자열 제한을 넘지 않도록 여유 있게 제한
+  if (dataUrl.length <= 45000) {
+    break;
+  }
 
-    return {
-      dataUrl,
-      originalSize,
-      newSize,
-    };
+  // 품질을 먼저 조금씩 낮춤
+  if (quality > 0.45) {
+    quality -= 0.08;
+    continue;
+  }
+
+  // 그래도 크면 이미지 해상도 자체를 조금 더 줄임
+  width = Math.round(width * 0.85);
+  height = Math.round(height * 0.85);
+  quality = 0.60;
+}
+
+const base64 = dataUrl.split(',')[1] || '';
+const newSize = Math.round(base64.length * 0.75);
+
+return { dataUrl, originalSize, newSize };
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
