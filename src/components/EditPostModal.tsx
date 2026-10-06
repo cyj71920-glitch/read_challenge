@@ -148,8 +148,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       img.src = result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 700;
-        const MAX_HEIGHT = 700;
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
         let width = img.width;
         let height = img.height;
 
@@ -170,7 +170,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
 
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.68);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.78);
         setImagePreview(compressedDataUrl);
         setImageUrl(compressedDataUrl);
       };
