@@ -221,7 +221,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
         studentNum: Number(studentNum),
         studentName: studentName.trim(),
         bookTitle: bookTitle.trim(),
-        bookAuthor: bookAuthor.trim() || undefined,
+        bookAuthor: bookAuthor.trim(),
         content: content.trim(),
         imageUrl,
       };
