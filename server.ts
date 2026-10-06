@@ -564,22 +564,52 @@ app.post('/api/posts/:id/like', async (req, res) => {
   }
 });
 
-app.post('/api/posts/:id/comment', (req, res) => {
-  const { id } = req.params;
-  const { author, text, gradeClass } = req.body;
-  const post = postsStore.find((p) => p.id === id);
-  if (!post) {
-    return res.status(404).json({ success: false, message: '게시글이 존재하지 않습니다.' });
+app.post('/api/posts/:id/comment', async (req, res) => {
+  try {
+    const gasUrl = getGasUrl();
+
+    if (!gasUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google Apps Script 연결이 설정되지 않았습니다.',
+      });
+    }
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'addComment',
+        id: req.params.id,
+        author: req.body?.author,
+        text: req.body?.text,
+        gradeClass: req.body?.gradeClass || '',
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.success !== true || !Array.isArray(data?.comments)) {
+      return res.status(400).json({
+        success: false,
+        message: data?.message || '댓글 저장에 실패했습니다.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      id: req.params.id,
+      comment: data.comment,
+      comments: data.comments,
+    });
+  } catch (error: any) {
+    console.error('댓글 저장 실패:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: '댓글 저장 중 오류가 발생했습니다.',
+    });
   }
-  const newComment = {
-    id: `c-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-    author: author || '친구',
-    gradeClass: gradeClass || '',
-    text: text || '',
-    createdAt: new Date().toISOString(),
-  };
-  post.comments.push(newComment);
-  res.json({ success: true, comments: post.comments });
 });
 
 app.delete('/api/posts/:postId/comments/:commentId', (req, res) => {
