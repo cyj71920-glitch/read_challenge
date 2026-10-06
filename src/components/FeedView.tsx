@@ -59,7 +59,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>({});
   const [sortBy, setSortBy] = useState<'newest' | 'likes'>('newest');
-  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
 
   // In-App Confirm Modal State (Non-blocking in iframes)
   const [confirmModalState, setConfirmModalState] = useState<{
@@ -80,8 +79,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const handleLike = (postId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     onLikePost(postId);
-    setLikedPosts((prev) => ({ ...prev, [postId]: true }));
-
     // Confetti burst on heart click
     try {
       const rect = event.currentTarget.getBoundingClientRect();
@@ -281,7 +278,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-7">
           {sortedPosts.map((post) => {
             const isCommentsOpen = activeCommentPostId === post.id;
-            const isHeartLiked = likedPosts[post.id];
+            const isHeartLiked = post.liked === true;
             const isExpanded = !!expandedPosts[post.id];
 
             return (
@@ -386,14 +383,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         id={`btn-like-${post.id}`}
                         onClick={(e) => handleLike(post.id, e)}
                         className={`flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition transform active:scale-95 ${
-                          isHeartLiked || post.likes > 0
+                          isHeartLiked
                             ? 'bg-[#EF4444] text-white'
                             : 'bg-white text-black hover:bg-red-50'
                         }`}
                       >
                         <Heart
                           className={`w-4 h-4 ${
-                            isHeartLiked || post.likes > 0 ? 'fill-white text-white' : 'text-black'
+                            isHeartLiked ? 'fill-white text-white' : 'text-black'
                           }`}
                         />
                         <span>{post.likes}</span>
