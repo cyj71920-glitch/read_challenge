@@ -689,7 +689,13 @@ const handleChangeAdminPassword = async (newPw: string) => {
 
   knownPostIdsRef.current.add(newPost.id);
 
-  latestPostTimeRef.current = newPost.createdAt;
+  if (typeof newPost.month === 'number') {
+    latestPostTimeByMonthRef.current.set(
+      newPost.month,
+      newPost.createdAt
+    );
+    loadedMonthsRef.current.add(newPost.month);
+  }
 }}
         targetMonth={activeSubmissionMonth}
         challenges={challenges}
