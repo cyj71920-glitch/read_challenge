@@ -70,12 +70,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
     if (isOpen && post) {
       setPasswordInput('');
       setVerifyError('');
-      // If admin, skip password verification step directly to edit
-      if (isAdmin) {
-        setStep('edit');
-      } else {
-        setStep('verify');
-      }
+      setStep('verify');
 
       setGrade(post.grade);
       setClassNum(post.classNum);
@@ -104,8 +99,14 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
 
   if (!isOpen || !post) return null;
 
+  const isLegacyLocked = post.month === 9;
+
   // Handle PIN verification
   const handleVerifyPassword = async (e?: React.FormEvent) => {
+    if (isLegacyLocked) {
+      setVerifyError('9월 챌린지 글은 열람만 가능하며 학생 수정·삭제는 지원하지 않습니다.');
+      return;
+    }
     if (e) e.preventDefault();
     if (!passwordInput || passwordInput.length !== 4) {
       setVerifyError('숫자 4자리 비밀번호를 입력해주세요.');
@@ -122,14 +123,11 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       } else {
         setVerifyError(res.message || '비밀번호가 일치하지 않습니다. 다시 확인해주세요.');
       }
-    } catch {
-      // Local check fallback
-      const stored = post.password || '1234';
-      if (stored === passwordInput.trim()) {
-        setStep('edit');
-      } else {
-        setVerifyError('비밀번호가 일치하지 않습니다. 다시 확인해주세요.');
-      }
+    } catch (err: any) {
+      setVerifyError(
+        err?.message ||
+        '비밀번호 확인에 실패했습니다. 잠시 후 다시 시도해주세요.'
+      );
     } finally {
       setIsVerifying(false);
     }
@@ -149,8 +147,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       img.src = result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1000;
-        const MAX_HEIGHT = 1000;
+        const MAX_WIDTH = 700;
+        const MAX_HEIGHT = 700;
         let width = img.width;
         let height = img.height;
 
@@ -171,7 +169,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
 
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.68);
         setImagePreview(compressedDataUrl);
         setImageUrl(compressedDataUrl);
       };
@@ -235,8 +233,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       const updated = await api.updatePost(
         post.id,
         updatePayload,
-        passwordInput.trim() || post.password,
-        isAdmin
+        passwordInput.trim(),
+        false
       );
 
       confetti({
@@ -264,7 +262,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
   const executeDelete = async () => {
     setIsDeleting(true);
     try {
-      await api.deletePost(post.id, passwordInput.trim() || post.password, isAdmin);
+      await api.deletePost(post.id, passwordInput.trim(), false);
       onSuccessToast('삭제 완료', '게시글이 삭제되었습니다.');
       if (onDeleteSuccess) {
         onDeleteSuccess(post.id);
@@ -358,15 +356,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                       const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
                       setPasswordInput(val);
                       if (verifyError) setVerifyError('');
-                      // Auto submit when 4 digits entered
-                      if (val.length === 4) {
-                        setTimeout(() => {
-                          const stored = post.password || '1234';
-                          if (stored === val) {
-                            setStep('edit');
-                          }
-                        }, 150);
-                      }
+
                     }}
                     placeholder="••••"
                     className="w-full text-center tracking-[1em] text-2xl font-black py-3 rounded-2xl border-3 border-black bg-white focus:ring-4 focus:ring-[#FFD100] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] placeholder:tracking-normal placeholder:text-slate-300"
@@ -381,9 +371,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                   </div>
                 )}
 
-                {/* Friendly hint for sample post */}
                 <p className="text-[11px] font-bold text-slate-400 mt-2">
-                  (💡 초기 샘플 글의 기본 비밀번호는 <span className="font-black text-slate-700">1234</span> 입니다)
+                  글을 등록할 때 설정한 4자리 비밀번호를 입력해주세요.
                 </p>
               </div>
             </div>
