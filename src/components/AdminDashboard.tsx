@@ -46,8 +46,7 @@ interface AdminDashboardProps {
   onOpenEditPost?: (post: Post) => void;
   onRefreshData: () => void;
   onToast: (type: 'success' | 'error' | 'info' | 'warning', title: string, message?: string) => void;
-  adminPassword?: string;
-  onChangeAdminPassword?: (newPw: string) => void;
+  onChangeAdminPassword?: (currentPw: string, newPw: string) => Promise<void>;
   onLogout?: () => void;
   previewAllMonths?: boolean;
   onTogglePreviewAll?: () => void;
@@ -67,7 +66,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenEditPost,
   onRefreshData,
   onToast,
-  adminPassword = '1234',
   onChangeAdminPassword,
   onLogout,
   previewAllMonths = false,
@@ -255,16 +253,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [confirmPwInput, setConfirmPwInput] = useState<string>('');
   const [pwError, setPwError] = useState<string>('');
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwError('');
 
-    if (currentPwInput !== adminPassword) {
-      setPwError('현재 비밀번호가 일치하지 않습니다.');
+    if (!/^\d{4}$/.test(currentPwInput)) {
+      setPwError('현재 비밀번호를 숫자 4자리로 입력해주세요.');
       return;
     }
-    if (newPwInput.length < 4) {
-      setPwError('새 비밀번호는 최소 4자 이상이어야 합니다.');
+    if (!/^\d{4}$/.test(newPwInput)) {
+      setPwError('새 비밀번호를 숫자 4자리로 입력해주세요.');
       return;
     }
     if (newPwInput !== confirmPwInput) {
@@ -273,12 +271,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     if (onChangeAdminPassword) {
-      onChangeAdminPassword(newPwInput);
-      onToast('success', '비밀번호 변경 완료', '새로운 관리자 비밀번호가 저장되었습니다.');
-      setIsChangePwModalOpen(false);
-      setCurrentPwInput('');
-      setNewPwInput('');
-      setConfirmPwInput('');
+      try {
+        await onChangeAdminPassword(currentPwInput, newPwInput);
+        onToast('success', '비밀번호 변경 완료', '새로운 관리자 비밀번호가 저장되었습니다.');
+        setIsChangePwModalOpen(false);
+        setCurrentPwInput('');
+        setNewPwInput('');
+        setConfirmPwInput('');
+      } catch (error: any) {
+        setPwError(
+          error?.message ||
+          '관리자 비밀번호 변경에 실패했습니다.'
+        );
+      }
     }
   };
 
@@ -1426,7 +1431,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="block font-black text-black">새 비밀번호 (4자 이상)</label>
+                <label className="block font-black text-black">새 비밀번호 (숫자 4자리)</label>
                 <input
                   type="password"
                   value={newPwInput}
