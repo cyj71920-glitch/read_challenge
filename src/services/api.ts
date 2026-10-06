@@ -57,7 +57,8 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     }
 
     return Array.isArray(data.history) ? data.history : [];
-  
+  },
+
   // Admin Password
   async getAdminPassword(): Promise<string> {
     try {
