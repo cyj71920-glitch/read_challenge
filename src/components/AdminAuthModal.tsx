@@ -95,7 +95,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
             학생 명부 관리, 게시글/댓글 삭제, 월별 챌린지 미션 설정, 구글 시트 연동 기능을 이용할 수 있습니다.
           </p>
           <p className="text-[#FF6B00] pl-5 text-[11px] font-black">
-            💡 초기 기본 비밀번호: <code className="bg-yellow-200 px-1 py-0.5 rounded border border-black text-black">1234</code> (로그인 후 변경 가능)
+            관리자 비밀번호는 서버에서 직접 확인되며 브라우저에 저장되지 않습니다.
           </p>
         </div>
 
