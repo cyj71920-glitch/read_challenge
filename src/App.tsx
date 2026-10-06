@@ -22,7 +22,13 @@ import {
 export default function App() {
   // Navigation & View states
   const [activeView, setActiveView] = useState<'feed' | 'race' | 'admin'>('feed');
-  const [currentMonth, setCurrentMonth] = useState<number | 'all'>(9);
+  const [currentMonth, setCurrentMonth] = useState<number | 'all'>(() => {
+    const calendarMonth = new Date().getMonth() + 1;
+    const availableMonths = CHALLENGE_MONTHS.map((item) => item.month);
+    return availableMonths.includes(calendarMonth)
+      ? calendarMonth
+      : (availableMonths[0] ?? 9);
+  });
   const [previewAllMonths, setPreviewAllMonths] = useState<boolean>(false);
 
   // Admin Authentication State
@@ -183,128 +189,188 @@ const handleChangeAdminPassword = async (newPw: string) => {
   };
 
   const knownPostIdsRef = useRef<Set<string>>(new Set());
-  const latestPostTimeRef = useRef<string | null>(null);
+  const loadedMonthsRef = useRef<Set<number | 'all'>>(new Set());
+  const latestPostTimeByMonthRef = useRef<Map<number, string>>(new Map());
   const isInitialLoadDoneRef = useRef<boolean>(false);
+  const pollingInFlightRef = useRef<boolean>(false);
+
+  const mergePosts = (incoming: Post[], replaceMonth?: number | 'all') => {
+    setPosts((prev) => {
+      let base = prev;
+
+      if (replaceMonth === 'all') {
+        base = [];
+      } else if (typeof replaceMonth === 'number') {
+        base = prev.filter((p) => p.month !== replaceMonth);
+      }
+
+      const byId = new Map<string, Post>();
+      [...incoming, ...base].forEach((post) => {
+        if (!byId.has(post.id)) {
+          byId.set(post.id, post);
+        }
+      });
+
+      const merged = Array.from(byId.values()).sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() -
+          new Date(a.createdAt).getTime()
+      );
+
+      knownPostIdsRef.current = new Set(merged.map((p) => p.id));
+      return merged;
+    });
+  };
+
+  const loadPostsForMonth = async (
+    targetMonth: number | 'all',
+    force = false
+  ) => {
+    if (!force && loadedMonthsRef.current.has(targetMonth)) {
+      return;
+    }
+
+    const fetchedPosts =
+      targetMonth === 'all'
+        ? await api.getPosts()
+        : await api.getPosts({ month: targetMonth });
+
+    mergePosts(fetchedPosts, targetMonth);
+    loadedMonthsRef.current.add(targetMonth);
+
+    if (typeof targetMonth === 'number') {
+      const newestTime =
+        fetchedPosts.length > 0
+          ? fetchedPosts.reduce((latest, post) => {
+              return new Date(post.createdAt).getTime() >
+                new Date(latest).getTime()
+                ? post.createdAt
+                : latest;
+            }, fetchedPosts[0].createdAt)
+          : new Date().toISOString();
+
+      latestPostTimeByMonthRef.current.set(targetMonth, newestTime);
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [fetchedPosts, fetchedRoster, fetchedChallenges] = await Promise.all([
-        api.getPosts(),
+      const [fetchedRoster, fetchedChallenges] = await Promise.all([
         api.getRoster(),
         api.getChallenges(),
       ]);
-      setPosts(fetchedPosts);
 
-knownPostIdsRef.current = new Set(
-  fetchedPosts.map((p) => p.id)
-);
-
-// 실시간 새 글 확인을 시작할 기준 시간
-latestPostTimeRef.current =
-  fetchedPosts.length > 0
-    ? fetchedPosts[0].createdAt
-    : new Date().toISOString();
-
-setRoster(fetchedRoster);
+      setRoster(fetchedRoster);
       if (fetchedChallenges && fetchedChallenges.length > 0) {
         setChallenges(fetchedChallenges);
       }
+
+      await loadPostsForMonth(currentMonth, true);
     } catch (err) {
-      console.warn('Fallback to local sample data', err);
-      setPosts(INITIAL_POSTS);
-      knownPostIdsRef.current = new Set(INITIAL_POSTS.map((p) => p.id));
+      console.warn('데이터 불러오기 실패:', err);
       setRoster(SAMPLE_ROSTER);
+
+      const fallbackPosts =
+        currentMonth === 'all'
+          ? INITIAL_POSTS
+          : INITIAL_POSTS.filter((p) => p.month === currentMonth);
+
+      mergePosts(fallbackPosts, currentMonth);
     } finally {
       setIsLoading(false);
       isInitialLoadDoneRef.current = true;
     }
   };
 
-useEffect(() => {
-  loadData();
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const intervalId = setInterval(async () => {
-    // 학생이 다른 탭을 보고 있으면 불필요한 요청을 하지 않음
-    if (document.hidden) {
-      return;
-    }
-
-    // 최초 데이터 로딩이 아직 끝나지 않았다면 기다림
+  // 사용자가 다른 월을 선택했을 때 그 달을 처음 한 번만 불러온다.
+  useEffect(() => {
     if (!isInitialLoadDoneRef.current) {
       return;
     }
 
-    // 최신 게시글 기준 시간이 없다면 기다림
-    if (!latestPostTimeRef.current) {
-      return;
-    }
+    const loadSelectedMonth = async () => {
+      try {
+        setIsLoading(true);
+        await loadPostsForMonth(currentMonth);
+      } catch (err) {
+        console.warn(`${currentMonth}월 게시글 불러오기 실패:`, err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    try {
-      // 전체 게시글이 아니라
-      // 마지막으로 확인한 시간 이후의 새 글만 요청
-      const newPosts = await api.getNewPosts(
-        latestPostTimeRef.current
-      );
+    loadSelectedMonth();
+  }, [currentMonth]);
 
-      if (!Array.isArray(newPosts) || newPosts.length === 0) {
+  // 현재 보고 있는 달의 새 글만 5초마다 확인한다.
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      if (
+        document.hidden ||
+        !isInitialLoadDoneRef.current ||
+        pollingInFlightRef.current ||
+        typeof currentMonth !== 'number'
+      ) {
         return;
       }
 
-      setPosts((prevPosts) => {
-        const existingIds = new Set(
-          prevPosts.map((p) => p.id)
-        );
+      const latestTime = latestPostTimeByMonthRef.current.get(currentMonth);
+      if (!latestTime) {
+        return;
+      }
 
-        // 이미 화면에 있는 글은 제외
-        const reallyNewPosts = newPosts.filter(
-          (p) => !existingIds.has(p.id)
-        );
+      pollingInFlightRef.current = true;
 
-        if (reallyNewPosts.length === 0) {
-          return prevPosts;
+      try {
+        const newPosts = await api.getNewPosts(latestTime, currentMonth);
+
+        if (!Array.isArray(newPosts) || newPosts.length === 0) {
+          return;
         }
 
-        // 서버에서 최신순으로 오므로 첫 번째가 가장 최근 글
+        const reallyNewPosts = newPosts.filter(
+          (post) => !knownPostIdsRef.current.has(post.id)
+        );
+
+        const newestTime = newPosts.reduce((latest, post) => {
+          return new Date(post.createdAt).getTime() >
+            new Date(latest).getTime()
+            ? post.createdAt
+            : latest;
+        }, latestTime);
+
+        latestPostTimeByMonthRef.current.set(currentMonth, newestTime);
+
+        if (reallyNewPosts.length === 0) {
+          return;
+        }
+
+        mergePosts(reallyNewPosts);
+
         const newestOne = reallyNewPosts[0];
-
-        // 다음 확인 때 사용할 최신 시간 갱신
-        latestPostTimeRef.current =
-          newestOne.createdAt;
-
-        // 새로운 글 알림
         addToast(
           'info',
           '✨ 실시간 새 인증글 도착',
           `${newestOne.grade}학년 ${newestOne.classNum}반 ${newestOne.studentName} 학생의 '${newestOne.bookTitle}' 인증이 도착했습니다!`
         );
+      } catch (err) {
+        console.warn('실시간 게시글 확인 실패:', err);
+      } finally {
+        pollingInFlightRef.current = false;
+      }
+    }, 5000);
 
-        // 새 글을 기존 게시글 맨 앞에 추가
-        const merged = [
-          ...reallyNewPosts,
-          ...prevPosts,
-        ];
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [currentMonth]);
 
-        knownPostIdsRef.current = new Set(
-          merged.map((p) => p.id)
-        );
-
-        return merged;
-      });
-    } catch (err) {
-      console.warn(
-        '실시간 게시글 확인 실패:',
-        err
-      );
-    }
-  }, 10000);
-
-  return () => {
-    clearInterval(intervalId);
-  };
-}, []);
-
-  const handleLikePost = async (postId: string) => {
+  const handleLikePost  const handleLikePost = async (postId: string) => {
     try {
       const updated = await api.likePost(postId);
       setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
@@ -391,7 +457,10 @@ useEffect(() => {
     return true;
   });
 
-  const activeSubmissionMonth = typeof currentMonth === 'number' ? currentMonth : 9;
+  const activeSubmissionMonth =
+    typeof currentMonth === 'number'
+      ? currentMonth
+      : new Date().getMonth() + 1;
 
   return (
     <div className="min-h-screen bg-[#FFFBEB] text-[#1E293B] flex flex-col font-sans selection:bg-[#FFD100] selection:text-black">
@@ -534,7 +603,7 @@ useEffect(() => {
         >
           <Camera className="w-5 h-5" />
           <span>
-            {typeof currentMonth === 'number' ? currentMonth : 9}월 챌린지 참여하기 📷
+            {typeof currentMonth === 'number' ? currentMonth : new Date().getMonth() + 1}월 챌린지 참여하기 📷
           </span>
         </button>
       </div>
