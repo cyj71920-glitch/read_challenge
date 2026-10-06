@@ -1,5 +1,28 @@
 import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo, PostEditHistoryItem } from '../types';
 
+let fallbackViewerId = '';
+
+const getOrCreateViewerId = (): string => {
+  try {
+    const key = 'reading_challenge_viewer_id';
+    const saved = localStorage.getItem(key);
+    if (saved) return saved;
+
+    const generated =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `viewer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    localStorage.setItem(key, generated);
+    return generated;
+  } catch {
+    if (!fallbackViewerId) {
+      fallbackViewerId = `viewer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+    return fallbackViewerId;
+  }
+};
+
 export const api = {
   // Posts
   async getPosts(params?: {
@@ -13,6 +36,7 @@ export const api = {
     if (params?.grade !== undefined && params.grade !== 'all') query.set('grade', String(params.grade));
     if (params?.classNum !== undefined && params.classNum !== 'all') query.set('classNum', String(params.classNum));
     if (params?.search) query.set('search', params.search);
+    query.set('viewerId', getOrCreateViewerId());
 
     const res = await fetch(`/api/posts?${query.toString()}`);
     if (!res.ok) throw new Error('게시글을 불러오는데 실패했습니다.');
@@ -26,6 +50,7 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
   if (month !== undefined) {
     query.set('month', String(month));
   }
+  query.set('viewerId', getOrCreateViewerId());
 
   const res = await fetch(`/api/posts?${query.toString()}`, {
     cache: 'no-store',
@@ -224,9 +249,13 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     return data;
   },
 
-  async likePost(id: string): Promise<{ id: string; likes: number }> {
+  async likePost(id: string): Promise<{ id: string; likes: number; liked: boolean }> {
     const res = await fetch(`/api/posts/${id}/like`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        viewerId: getOrCreateViewerId(),
+      }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -240,6 +269,7 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     return {
       id,
       likes: Number(data.likes) || 0,
+      liked: data.liked === true,
     };
   },
 
