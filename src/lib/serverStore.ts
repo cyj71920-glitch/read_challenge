@@ -45,7 +45,9 @@ export async function syncPostToGas(post: Post, config: GasConfig = gasConfigSto
         month: post.month,
         challengeTitle: post.challengeTitle || '',
         likes: post.likes || 0,
+        comments: post.comments || [],
         createdAt: post.createdAt,
+        password: post.password || '',
       },
       adminEmail: config.adminEmail,
       sendEmail: config.autoEmailAlert,
@@ -59,11 +61,25 @@ export async function syncPostToGas(post: Post, config: GasConfig = gasConfigSto
       body: JSON.stringify(payload),
     });
 
-    if (res.ok) {
-      post.syncedToGas = true;
-      return true;
+    if (!res.ok) return false;
+
+    const responseText = await res.text();
+    let data: any;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      console.warn('Google Apps Script returned a non-JSON response.');
+      return false;
     }
-    return false;
+
+    const confirmed = data?.success === true || data?.status === 'success';
+    if (!confirmed) {
+      console.warn('Google Apps Script did not confirm save success:', data);
+      return false;
+    }
+
+    post.syncedToGas = true;
+    return true;
   } catch (error) {
     console.warn('Google Apps Script sync failed (will rely on client fallback):', error);
     return false;
