@@ -515,14 +515,48 @@ app.delete('/api/posts/:id', async (req, res) => {
   }
 });
 
-app.post('/api/posts/:id/like', (req, res) => {
-  const { id } = req.params;
-  const post = postsStore.find((p) => p.id === id);
-  if (!post) {
-    return res.status(404).json({ success: false, message: '게시글이 존재하지 않습니다.' });
+app.post('/api/posts/:id/like', async (req, res) => {
+  try {
+    const gasUrl = getGasUrl();
+
+    if (!gasUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google Apps Script 연결이 설정되지 않았습니다.',
+      });
+    }
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'likePost',
+        id: req.params.id,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.success !== true) {
+      return res.status(400).json({
+        success: false,
+        message: data?.message || '좋아요 저장에 실패했습니다.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      id: req.params.id,
+      likes: Number(data.likes) || 0,
+    });
+  } catch (error: any) {
+    console.error('좋아요 저장 실패:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: '좋아요 저장 중 오류가 발생했습니다.',
+    });
   }
-  post.likes += 1;
-  res.json({ success: true, likes: post.likes });
 });
 
 app.post('/api/posts/:id/comment', (req, res) => {
