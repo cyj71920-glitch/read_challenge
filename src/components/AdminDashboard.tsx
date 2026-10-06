@@ -1245,7 +1245,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     isDestructive: true,
                                     onConfirm: () => {
                                       onDeleteComment(post.id, c.id);
-                                      onToast('info', '댓글 삭제 완료', '선택한 댓글이 삭제되었습니다.');
                                     },
                                   });
                                 }}
