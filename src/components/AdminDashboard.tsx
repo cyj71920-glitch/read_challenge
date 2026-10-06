@@ -25,7 +25,7 @@ import {
   Loader2,
   X,
 } from 'lucide-react';
-import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo, AdminOverrideType, PostEditHistoryItem } from '../types';
+import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo, AdminOverrideType, PostEditHistoryItem, CommentEditHistoryItem } from '../types';
 import { CHALLENGE_MONTHS, GAS_SCRIPT_TEMPLATE } from '../data/challenges';
 import { StudentRosterManager } from './StudentRosterManager';
 import { ConfirmModal } from './ConfirmModal';
@@ -87,6 +87,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editHistory, setEditHistory] = useState<PostEditHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState<boolean>(false);
   const [historyError, setHistoryError] = useState<string>('');
+  const [commentHistoryTarget, setCommentHistoryTarget] = useState<{
+    postId: string;
+    commentId: string;
+    author: string;
+    currentText: string;
+  } | null>(null);
+  const [commentEditHistory, setCommentEditHistory] = useState<CommentEditHistoryItem[]>([]);
+  const [isCommentHistoryLoading, setIsCommentHistoryLoading] = useState<boolean>(false);
+  const [commentHistoryError, setCommentHistoryError] = useState<string>('');
 
   const handleOpenEditHistory = async (post: Post) => {
     setHistoryPost(post);
@@ -105,6 +114,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onToast('error', '수정 이력 조회 실패', message);
     } finally {
       setIsHistoryLoading(false);
+    }
+  };
+
+  const handleOpenCommentEditHistory = async (
+    postId: string,
+    commentId: string,
+    author: string,
+    currentText: string
+  ) => {
+    setCommentHistoryTarget({
+      postId,
+      commentId,
+      author,
+      currentText,
+    });
+    setCommentEditHistory([]);
+    setCommentHistoryError('');
+    setIsCommentHistoryLoading(true);
+
+    try {
+      const history = await api.getCommentEditHistory(
+        postId,
+        commentId
+      );
+      setCommentEditHistory(history);
+    } catch (error: any) {
+      const message =
+        error?.message ||
+        '댓글 수정 이력을 불러오지 못했습니다.';
+      setCommentHistoryError(message);
+      onToast('error', '댓글 수정 이력 조회 실패', message);
+    } finally {
+      setIsCommentHistoryLoading(false);
     }
   };
 
@@ -1173,27 +1215,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <span className="font-black text-black mr-1">[{c.author}]</span>
                             <span className="text-slate-700">{c.text}</span>
                           </div>
-                          {onDeleteComment && (
-                            <button
-                              onClick={() => {
-                                setConfirmModalState({
-                                  isOpen: true,
-                                  title: '댓글 삭제 확인',
-                                  message: `'${c.author}' 님의 댓글을 삭제하시겠습니까?`,
-                                  confirmLabel: '댓글 삭제',
-                                  isDestructive: true,
-                                  onConfirm: () => {
-                                    onDeleteComment(post.id, c.id);
-                                    onToast('info', '댓글 삭제 완료', '선택한 댓글이 삭제되었습니다.');
-                                  },
-                                });
-                              }}
-                              className="text-red-500 hover:text-red-700 p-0.5 shrink-0"
-                              title="댓글 삭제"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {c.isEdited && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleOpenCommentEditHistory(
+                                    post.id,
+                                    c.id,
+                                    c.author,
+                                    c.text
+                                  )
+                                }
+                                className="text-indigo-600 hover:text-indigo-800 p-0.5"
+                                title="댓글 수정 전후 이력 보기"
+                              >
+                                <History className="w-3 h-3" />
+                              </button>
+                            )}
+
+                            {onDeleteComment && (
+                              <button
+                                onClick={() => {
+                                  setConfirmModalState({
+                                    isOpen: true,
+                                    title: '댓글 삭제 확인',
+                                    message: `'${c.author}' 님의 댓글을 삭제하시겠습니까?`,
+                                    confirmLabel: '댓글 삭제',
+                                    isDestructive: true,
+                                    onConfirm: () => {
+                                      onDeleteComment(post.id, c.id);
+                                      onToast('info', '댓글 삭제 완료', '선택한 댓글이 삭제되었습니다.');
+                                    },
+                                  });
+                                }}
+                                className="text-red-500 hover:text-red-700 p-0.5"
+                                title="댓글 삭제"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1552,6 +1614,104 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {commentHistoryTarget && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-[2rem] border-4 border-black shadow-[10px_10px_0px_0px_rgba(0,0,0,1)]">
+            <div className="bg-[#C4B5FD] border-b-4 border-black px-5 py-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  <h3 className="font-black text-lg text-black">
+                    댓글 수정 이력
+                  </h3>
+                </div>
+                <p className="text-xs font-bold text-black/75 mt-1">
+                  작성자: {commentHistoryTarget.author}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCommentHistoryTarget(null);
+                  setCommentEditHistory([]);
+                  setCommentHistoryError('');
+                }}
+                className="bg-white border-2 border-black rounded-xl p-2 hover:bg-red-100 transition"
+                title="닫기"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto max-h-[calc(90vh-90px)] space-y-4">
+              {isCommentHistoryLoading ? (
+                <div className="py-14 flex flex-col items-center gap-3 text-slate-600">
+                  <Loader2 className="w-7 h-7 animate-spin" />
+                  <p className="font-black text-sm">댓글 수정 이력을 불러오는 중...</p>
+                </div>
+              ) : commentHistoryError ? (
+                <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 text-sm font-bold text-red-700">
+                  {commentHistoryError}
+                </div>
+              ) : commentEditHistory.length === 0 ? (
+                <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-6 text-center text-sm font-bold text-slate-600">
+                  저장된 댓글 수정 이력이 없습니다.
+                </div>
+              ) : (
+                commentEditHistory.map((item, index) => (
+                  <div
+                    key={`${item.editedAt}-${index}`}
+                    className="border-2 border-black rounded-2xl overflow-hidden"
+                  >
+                    <div className="bg-slate-100 border-b-2 border-black px-4 py-2.5 flex items-center justify-between gap-2">
+                      <span className="font-black text-sm text-black">
+                        수정 기록 {commentEditHistory.length - index}
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {item.editedAt
+                          ? new Date(item.editedAt).toLocaleString('ko-KR')
+                          : ''}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2">
+                      <div className="p-4 bg-red-50 md:border-r-2 border-black">
+                        <h4 className="font-black text-sm text-red-700 mb-2">
+                          수정 전
+                        </h4>
+                        <p className="whitespace-pre-wrap bg-white border border-red-200 rounded-lg p-3 text-xs font-bold text-slate-800 min-h-20">
+                          {item.beforeText || '-'}
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-emerald-50">
+                        <h4 className="font-black text-sm text-emerald-700 mb-2">
+                          수정 후
+                        </h4>
+                        <p className="whitespace-pre-wrap bg-white border border-emerald-200 rounded-lg p-3 text-xs font-bold text-slate-800 min-h-20">
+                          {item.afterText || '-'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {!isCommentHistoryLoading &&
+                !commentHistoryError &&
+                commentEditHistory.length > 0 && (
+                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-3">
+                    <p className="text-[11px] font-bold text-indigo-800">
+                      현재 댓글: {commentHistoryTarget.currentText}
+                    </p>
+                  </div>
+                )}
             </div>
           </div>
         </div>
