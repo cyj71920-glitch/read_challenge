@@ -104,70 +104,66 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     return Array.isArray(data.history) ? data.history : [];
   },
 
-  // Admin Password
-  async getAdminPassword(): Promise<string> {
+  // Admin Authentication
+  async adminLogin(password: string): Promise<boolean> {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: password.trim() }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true || data?.authenticated !== true) {
+      throw new Error(data?.message || '관리자 로그인에 실패했습니다.');
+    }
+
+    return true;
+  },
+
+  async getAdminSession(): Promise<boolean> {
     try {
-      const res = await fetch('/api/admin/password');
+      const res = await fetch('/api/admin/session', {
+        cache: 'no-store',
+      });
 
-      if (!res.ok) {
-        throw new Error('관리자 비밀번호를 불러오는데 실패했습니다.');
-      }
-
-      const data = await res.json();
-
-      return String(data.password || '1234');
-    } catch (error) {
-      console.warn('관리자 비밀번호 불러오기 실패:', error);
-
-      // 서버 연결이 안 될 경우 기존 브라우저 저장값 사용
-      try {
-        return localStorage.getItem('library_admin_password') || '1234';
-      } catch {
-        return '1234';
-      }
+      const data = await res.json().catch(() => ({}));
+      return res.ok && data?.authenticated === true;
+    } catch {
+      return false;
     }
   },
 
-  async saveAdminPassword(newPassword: string): Promise<boolean> {
-    const password = String(newPassword).trim();
+  async logoutAdmin(): Promise<void> {
+    await fetch('/api/admin/logout', {
+      method: 'POST',
+    }).catch(() => undefined);
+  },
 
-    if (password.length !== 4) {
-      throw new Error('관리자 비밀번호는 4자리로 입력해주세요.');
+  async saveAdminPassword(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<boolean> {
+    const res = await fetch('/api/admin/password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        currentPassword: currentPassword.trim(),
+        newPassword: newPassword.trim(),
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true) {
+      throw new Error(
+        data?.message || '관리자 비밀번호 저장에 실패했습니다.'
+      );
     }
 
-    try {
-      const res = await fetch('/api/admin/password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(
-          data.message || '관리자 비밀번호 저장에 실패했습니다.'
-        );
-      }
-
-      // 현재 브라우저에서도 바로 사용할 수 있도록 임시 저장
-      try {
-        localStorage.setItem('library_admin_password', password);
-      } catch {}
-
-      return true;
-    } catch (error) {
-      console.error('관리자 비밀번호 저장 실패:', error);
-
-      // 서버 저장에 실패한 경우 현재 브라우저에만 저장
-      try {
-        localStorage.setItem('library_admin_password', password);
-      } catch {}
-
-      throw error;
-    }
+    return true;
   },
 
   async createPost(postData: Partial<Post>): Promise<Post> {
