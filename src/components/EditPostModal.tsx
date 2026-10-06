@@ -61,6 +61,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
   const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pinInputRef = useRef<HTMLInputElement>(null);
@@ -254,9 +255,6 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       setIsSubmitting(false);
     }
   };
-
-  // In-app Confirm Modal State
-  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState<boolean>(false);
 
   // Handle post delete
   const executeDelete = async () => {
