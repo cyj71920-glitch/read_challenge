@@ -190,6 +190,7 @@ const handleChangeAdminPassword = async (newPw: string) => {
 
   const knownPostIdsRef = useRef<Set<string>>(new Set());
   const loadedMonthsRef = useRef<Set<number | 'all'>>(new Set());
+  const loadingMonthsRef = useRef<Set<number | 'all'>>(new Set());
   const latestPostTimeByMonthRef = useRef<Map<number, string>>(new Map());
   const isInitialLoadDoneRef = useRef<boolean>(false);
   const pollingInFlightRef = useRef<boolean>(false);
@@ -230,26 +231,36 @@ const handleChangeAdminPassword = async (newPw: string) => {
       return;
     }
 
-    const fetchedPosts =
-      targetMonth === 'all'
-        ? await api.getPosts()
-        : await api.getPosts({ month: targetMonth });
+    if (loadingMonthsRef.current.has(targetMonth)) {
+      return;
+    }
 
-    mergePosts(fetchedPosts, targetMonth);
-    loadedMonthsRef.current.add(targetMonth);
+    loadingMonthsRef.current.add(targetMonth);
 
-    if (typeof targetMonth === 'number') {
-      const newestTime =
-        fetchedPosts.length > 0
-          ? fetchedPosts.reduce((latest, post) => {
-              return new Date(post.createdAt).getTime() >
-                new Date(latest).getTime()
-                ? post.createdAt
-                : latest;
-            }, fetchedPosts[0].createdAt)
-          : new Date().toISOString();
+    try {
+      const fetchedPosts =
+        targetMonth === 'all'
+          ? await api.getPosts()
+          : await api.getPosts({ month: targetMonth });
 
-      latestPostTimeByMonthRef.current.set(targetMonth, newestTime);
+      mergePosts(fetchedPosts, targetMonth);
+      loadedMonthsRef.current.add(targetMonth);
+
+      if (typeof targetMonth === 'number') {
+        const newestTime =
+          fetchedPosts.length > 0
+            ? fetchedPosts.reduce((latest, post) => {
+                return new Date(post.createdAt).getTime() >
+                  new Date(latest).getTime()
+                  ? post.createdAt
+                  : latest;
+              }, fetchedPosts[0].createdAt)
+            : new Date().toISOString();
+
+        latestPostTimeByMonthRef.current.set(targetMonth, newestTime);
+      }
+    } finally {
+      loadingMonthsRef.current.delete(targetMonth);
     }
   };
 
@@ -287,12 +298,9 @@ const handleChangeAdminPassword = async (newPw: string) => {
     loadData();
   }, []);
 
-  // 사용자가 다른 월을 선택했을 때 그 달을 처음 한 번만 불러온다.
+  // 사용자가 다른 월을 선택하면 그 달을 즉시 불러온다.
+  // 초기 로딩 도중 월을 바꿔도 놓치지 않도록 최초 완료 여부와 무관하게 실행한다.
   useEffect(() => {
-    if (!isInitialLoadDoneRef.current) {
-      return;
-    }
-
     const loadSelectedMonth = async () => {
       try {
         setIsLoading(true);
