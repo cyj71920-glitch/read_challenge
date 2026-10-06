@@ -399,9 +399,19 @@ const handleChangeAdminPassword = async (newPw: string) => {
     }
   };
 
-  const handleAddComment = async (postId: string, text: string, authorName: string) => {
+  const handleAddComment = async (
+    postId: string,
+    text: string,
+    authorName: string,
+    password: string
+  ): Promise<boolean> => {
     try {
-      const comments = await api.addComment(postId, text, authorName);
+      const comments = await api.addComment(
+        postId,
+        text,
+        authorName,
+        password
+      );
 
       setPosts((prev) =>
         prev.map((p) =>
@@ -416,6 +426,7 @@ const handleChangeAdminPassword = async (newPw: string) => {
         '댓글 작성 완료',
         '따뜻한 응원 댓글이 등록되었습니다.'
       );
+      return true;
     } catch (err: any) {
       console.error('댓글 저장 실패:', err);
 
@@ -424,6 +435,42 @@ const handleChangeAdminPassword = async (newPw: string) => {
         '댓글 저장 실패',
         err?.message || '댓글이 저장되지 않았습니다. 다시 시도해주세요.'
       );
+      return false;
+    }
+  };
+
+  const handleUpdateComment = async (
+    postId: string,
+    commentId: string,
+    text: string,
+    password: string
+  ): Promise<boolean> => {
+    try {
+      const comments = await api.updateComment(
+        postId,
+        commentId,
+        text,
+        password
+      );
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? { ...p, comments }
+            : p
+        )
+      );
+
+      addToast('success', '댓글 수정 완료', '댓글이 수정되었습니다.');
+      return true;
+    } catch (err: any) {
+      console.error('댓글 수정 실패:', err);
+      addToast(
+        'error',
+        '댓글 수정 실패',
+        err?.message || '댓글이 수정되지 않았습니다.'
+      );
+      return false;
     }
   };
 
@@ -443,26 +490,38 @@ const handleChangeAdminPassword = async (newPw: string) => {
     }
   };
 
-  const handleDeleteComment = async (postId: string, commentId: string) => {
+  const handleDeleteComment = async (
+    postId: string,
+    commentId: string,
+    password = '',
+    isAdmin = false
+  ): Promise<boolean> => {
     try {
-      await api.deleteComment(postId, commentId);
+      const comments = await api.deleteComment(
+        postId,
+        commentId,
+        password,
+        isAdmin
+      );
+
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
-            ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) }
+            ? { ...p, comments }
             : p
         )
       );
+
       addToast('info', '댓글 삭제 완료', '댓글이 삭제되었습니다.');
+      return true;
     } catch (err: any) {
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId
-            ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) }
-            : p
-        )
+      console.error('댓글 삭제 실패:', err);
+      addToast(
+        'error',
+        '댓글 삭제 실패',
+        err?.message || '댓글이 삭제되지 않았습니다.'
       );
-      addToast('info', '댓글 삭제 완료', '댓글이 삭제되었습니다.');
+      return false;
     }
   };
 
@@ -571,6 +630,7 @@ const handleChangeAdminPassword = async (newPw: string) => {
                 onChangeSearch={setSearchQuery}
                 onLikePost={handleLikePost}
                 onAddComment={handleAddComment}
+                onUpdateComment={handleUpdateComment}
                 isAdmin={isAdminAuthenticated}
                 onDeletePost={handleDeletePost}
                 onDeleteComment={handleDeleteComment}
