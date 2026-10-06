@@ -1178,16 +1178,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ❤️ {post.likes} • 💬 {post.comments.length}
                   </span>
                   <div className="flex items-center gap-1.5">
-                    {onOpenEditPost && (
-                      <button
-                        onClick={() => onOpenEditPost(post)}
-                        className="flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-black bg-slate-200 hover:bg-yellow-300 px-2 py-1 rounded-lg border border-slate-400 transition"
-                        title="관리자 권한으로 게시글 수정"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-[#FF6B00]" />
-                        <span>수정</span>
-                      </button>
-                    )}
                     <button
                       id={`btn-admin-del-post-${post.id}`}
                       onClick={() => {
