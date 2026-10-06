@@ -150,27 +150,23 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
   },
 
   async verifyPostPassword(id: string, password: string): Promise<{ success: boolean; matched: boolean; message?: string }> {
-    try {
-      const res = await fetch(`/api/posts/${id}/verify-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      const data = await res.json();
-      return data;
-    } catch {
-      const current = await this.getPosts();
-      const target = current.find((p) => p.id === id);
-      if (!target) {
-        return { success: false, matched: false, message: '글을 찾을 수 없습니다.' };
-      }
-      const isMatched = (target.password || '1234') === password.trim();
+    const res = await fetch(`/api/posts/${id}/verify-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true || data?.matched !== true) {
       return {
-        success: isMatched,
-        matched: isMatched,
-        message: isMatched ? '비밀번호가 일치합니다.' : '비밀번호가 일치하지 않습니다.',
+        success: false,
+        matched: false,
+        message: data?.message || '비밀번호 확인에 실패했습니다.',
       };
     }
+
+    return data;
   },
 
   async updatePost(
@@ -179,74 +175,35 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     password?: string,
     isAdmin?: boolean
   ): Promise<Post> {
-    try {
-      const res = await fetch(`/api/posts/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updateData, password, isAdmin }),
-      });
-      if (!res.ok) {
-        const errJson = await res.json();
-        throw new Error(errJson.message || '글 수정에 실패했습니다.');
-      }
-      const json = await res.json();
-      return json.post || json;
-    } catch (e: any) {
-      const current = await this.getPosts();
-      const index = current.findIndex((p) => p.id === id);
-      if (index === -1) {
-        throw new Error('해당 글을 찾을 수 없습니다.');
-      }
-      const target = current[index];
-      if (!isAdmin && password) {
-        if ((target.password || '1234') !== password.trim()) {
-          throw new Error('비밀번호가 일치하지 않습니다.');
-        }
-      }
-      const updatedPost: Post = {
-        ...target,
-        ...updateData,
-        password: updateData.newPassword ? updateData.newPassword.trim() : target.password,
-      };
-      current[index] = updatedPost;
-      localStorage.setItem('reading_challenge_posts', JSON.stringify(current));
-      return updatedPost;
+    const res = await fetch(`/api/posts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updateData, password, isAdmin }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true || !data?.post) {
+      throw new Error(data?.message || '글 수정에 실패했습니다.');
     }
+
+    return data.post;
   },
 
   async deletePost(id: string, password?: string, isAdmin?: boolean): Promise<{ success: boolean; message?: string }> {
-    try {
-      const localStr = localStorage.getItem('reading_challenge_posts');
-      if (localStr) {
-        const parsed = JSON.parse(localStr);
-        if (Array.isArray(parsed)) {
-          localStorage.setItem('reading_challenge_posts', JSON.stringify(parsed.filter((p: any) => p.id !== id)));
-        }
-      }
-    } catch (e) {
-      console.warn('LocalStorage remove warning:', e);
+    const res = await fetch(`/api/posts/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password, isAdmin }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true) {
+      throw new Error(data?.message || '게시글 삭제에 실패했습니다.');
     }
 
-    try {
-      const res = await fetch(`/api/posts/${id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, isAdmin }),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-      const errData = await res.json().catch(() => ({}));
-      if (res.status === 403) {
-        throw new Error(errData.message || '비밀번호가 일치하지 않습니다.');
-      }
-    } catch (err: any) {
-      if (err.message && err.message.includes('비밀번호')) {
-        throw err;
-      }
-    }
-
-    return { success: true, message: '게시글이 삭제되었습니다.' };
+    return data;
   },
 
   async likePost(id: string): Promise<Post> {
