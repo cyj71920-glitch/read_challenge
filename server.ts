@@ -365,112 +365,102 @@ app.post('/api/posts', async (req, res) => {
   }
 });
 
-// Verify post password (for student author self-editing)
-app.post('/api/posts/:id/verify-password', (req, res) => {
-  const { id } = req.params;
-  const { password } = req.body;
-  const post = postsStore.find((p) => p.id === id);
-  if (!post) {
-    return res.status(404).json({ success: false, matched: false, message: '해당 글을 찾을 수 없습니다.' });
-  }
+// Student post edit actions are persisted through Google Apps Script.
+app.post('/api/posts/:id/verify-password', async (req, res) => {
+  try {
+    const gasUrl = getGasUrl();
+    if (!gasUrl) {
+      return res.status(500).json({ success: false, matched: false, message: 'Google Apps Script 연결이 설정되지 않았습니다.' });
+    }
 
-  const storedPw = post.password || '1234';
-  const inputPw = String(password || '').trim();
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'verifyPostPassword',
+        id: req.params.id,
+        ...req.body,
+      }),
+    });
 
-  if (storedPw === inputPw) {
-    return res.json({ success: true, matched: true, message: '비밀번호가 일치합니다.' });
-  } else {
-    return res.status(401).json({ success: false, matched: false, message: '비밀번호가 일치하지 않습니다.' });
+    const data = await response.json().catch(() => ({}));
+    return res.status(data?.success ? 200 : 400).json(data);
+  } catch (error: any) {
+    console.error('게시글 확인 실패:', error);
+    return res.status(500).json({ success: false, matched: false, message: '게시글 확인 중 오류가 발생했습니다.' });
   }
 });
 
-// Update post (requires matching password or admin authorization)
-app.put('/api/posts/:id', (req, res) => {
-  const { id } = req.params;
-  const { password, isAdmin, updateData } = req.body;
-  const post = postsStore.find((p) => p.id === id);
-  if (!post) {
-    return res.status(404).json({ success: false, message: '해당 글을 찾을 수 없습니다.' });
-  }
-
-  // Check authorization
-  if (!isAdmin) {
-    const storedPw = post.password || '1234';
-    const inputPw = String(password || '').trim();
-    if (storedPw !== inputPw) {
-      return res.status(403).json({ success: false, message: '비밀번호가 일치하지 않아 수정할 수 없습니다.' });
+app.put('/api/posts/:id', async (req, res) => {
+  try {
+    if (req.body?.isAdmin) {
+      return res.status(403).json({ success: false, message: '관리자는 게시글 수정 기능을 사용하지 않습니다.' });
     }
-  }
 
-  // Update allowed fields
-  if (updateData) {
-    if (updateData.bookTitle !== undefined) post.bookTitle = String(updateData.bookTitle).trim();
-    if (updateData.bookAuthor !== undefined) post.bookAuthor = updateData.bookAuthor ? String(updateData.bookAuthor).trim() : undefined;
-    if (updateData.content !== undefined) post.content = String(updateData.content).trim();
-    if (updateData.imageUrl !== undefined && updateData.imageUrl) post.imageUrl = updateData.imageUrl;
-    if (updateData.studentName !== undefined) post.studentName = String(updateData.studentName).trim();
-    if (updateData.grade !== undefined) post.grade = Number(updateData.grade);
-    if (updateData.classNum !== undefined) post.classNum = Number(updateData.classNum);
-    if (updateData.studentNum !== undefined) post.studentNum = Number(updateData.studentNum);
-    if (updateData.newPassword !== undefined && String(updateData.newPassword).trim().length === 4) {
-      post.password = String(updateData.newPassword).trim();
+    const gasUrl = getGasUrl();
+    if (!gasUrl) {
+      return res.status(500).json({ success: false, message: 'Google Apps Script 연결이 설정되지 않았습니다.' });
     }
-  }
 
-  res.json({ success: true, post, message: '글이 성공적으로 수정되었습니다.' });
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'updatePost',
+        id: req.params.id,
+        ...req.body,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!data?.success || !data?.post) {
+      return res.status(400).json({
+        success: false,
+        message: data?.message || '게시글 수정에 실패했습니다.',
+      });
+    }
+
+    return res.json(data);
+  } catch (error: any) {
+    console.error('게시글 수정 실패:', error);
+    return res.status(500).json({ success: false, message: '게시글 수정 중 오류가 발생했습니다.' });
+  }
 });
 
 app.delete('/api/posts/:id', async (req, res) => {
-  const { id } = req.params;
-  const { password, isAdmin } = req.body || {};
-
-  const targetIndex = postsStore.findIndex((p) => p.id === id);
-
-  if (targetIndex !== -1) {
-    const post = postsStore[targetIndex];
-
-    if (!isAdmin && password) {
-      const storedPw = post.password || '1234';
-
-      if (storedPw !== String(password).trim()) {
-        return res.status(403).json({
-          success: false,
-          message: '비밀번호가 일치하지 않습니다.',
-        });
-      }
-    }
-
-    postsStore.splice(targetIndex, 1);
-  }
-
   try {
-const gasUrl = getGasUrl();
-    if (gasUrl) {
-      const gasResponse = await fetch(gasUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'deletePost',
-          id,
-        }),
-      });
-
-      const gasData = await gasResponse.json();
-
-      if (!gasResponse.ok || !gasData.success) {
-        console.warn('GAS 게시글 삭제 실패:', gasData);
-      }
+    const gasUrl = getGasUrl();
+    if (!gasUrl) {
+      return res.status(500).json({ success: false, message: 'Google Apps Script 연결이 설정되지 않았습니다.' });
     }
-  } catch (error) {
-    console.warn('GAS 게시글 삭제 요청 실패:', error);
-  }
 
-  res.json({
-    success: true,
-    message: '글이 성공적으로 삭제되었습니다.',
-  });
+    const action = req.body?.isAdmin ? 'deletePost' : 'deletePostStudent';
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        id: req.params.id,
+        ...req.body,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!data?.success) {
+      return res.status(400).json({
+        success: false,
+        message: data?.message || '게시글 삭제에 실패했습니다.',
+      });
+    }
+
+    return res.json(data);
+  } catch (error: any) {
+    console.error('게시글 삭제 실패:', error);
+    return res.status(500).json({ success: false, message: '게시글 삭제 중 오류가 발생했습니다.' });
+  }
 });
 
 app.post('/api/posts/:id/like', (req, res) => {
