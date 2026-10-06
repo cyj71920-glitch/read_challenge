@@ -314,18 +314,22 @@ app.post('/api/posts', async (req, res) => {
       password: postData.password ? String(postData.password).trim() : '1234',
     };
 
+    const synced = await syncPostToGas(newPost);
+
+    if (!synced) {
+      return res.status(502).json({
+        success: false,
+        message: '글이 스프레드시트에 저장되지 않았습니다. 잠시 후 다시 시도해주세요.',
+      });
+    }
+
     postsStore.unshift(newPost);
 
-    // Sync to Google Apps Script Web App if URL is configured (including photo imageUrl)
-if (gasConfigStore.webAppUrl) {
-  const synced = await syncPostToGas(newPost);
-
-  if (!synced) {
-    console.warn('Google Sheets sync failed.');
-  }
-}
-
-res.status(201).json({ success: true, post: newPost });
+    return res.status(201).json({
+      success: true,
+      post: newPost,
+      message: '글이 안전하게 저장되었습니다.',
+    });
   } catch (error: any) {
     console.error('Post creation error:', error);
     res.status(500).json({ success: false, error: error.message || '글 등록 실패' });
