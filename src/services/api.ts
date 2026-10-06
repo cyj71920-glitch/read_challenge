@@ -19,12 +19,17 @@ export const api = {
     const data = await res.json();
     return Array.isArray(data) ? data : data.posts || [];
   },
-async getNewPosts(after: string): Promise<Post[]> {
+async getNewPosts(after: string, month?: number): Promise<Post[]> {
   const query = new URLSearchParams();
 
   query.set('after', after);
+  if (month !== undefined) {
+    query.set('month', String(month));
+  }
 
-  const res = await fetch(`/api/posts?${query.toString()}`);
+  const res = await fetch(`/api/posts?${query.toString()}`, {
+    cache: 'no-store',
+  });
 
   if (!res.ok) {
     throw new Error('새 게시글을 불러오는데 실패했습니다.');
