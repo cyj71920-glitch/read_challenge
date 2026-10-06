@@ -122,49 +122,26 @@ async getNewPosts(after: string): Promise<Post[]> {
       password: postData.password ? String(postData.password).trim() : '1234',
     };
 
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPost),
+    });
+
+    let json: any = {};
     try {
-      const res = await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPost),
-      });
-      if (res.ok) {
-  const json = await res.json();
-  const serverPost = json.post || json;
+      json = await res.json();
+    } catch {}
 
-  Object.assign(newPost, serverPost);
-}
-    } catch {
-      // Server offline fallback
+    if (!res.ok || json?.success !== true) {
+      throw new Error(
+        json?.message ||
+        json?.error ||
+        '글이 스프레드시트에 저장되지 않았습니다. 잠시 후 다시 시도해주세요.'
+      );
     }
 
-try {
-  const saved = localStorage.getItem('reading_challenge_posts');
-
-  let current: Post[] = [];
-
-  if (saved) {
-    const parsed = JSON.parse(saved);
-
-    if (Array.isArray(parsed)) {
-      current = parsed;
-    }
-  }
-
-  const updated = [
-    newPost,
-    ...current.filter((p) => p.id !== newPost.id),
-  ];
-
-  localStorage.setItem(
-    'reading_challenge_posts',
-    JSON.stringify(updated)
-  );
-} catch (storageErr) {
-  console.warn('LocalStorage limit exceeded:', storageErr);
-}
-
-    return newPost;
+    return json.post || newPost;
   },
 
   async verifyPostPassword(id: string, password: string): Promise<{ success: boolean; matched: boolean; message?: string }> {
