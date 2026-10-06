@@ -287,6 +287,60 @@ app.get('/api/posts/:id/edit-history', async (req, res) => {
   }
 });
 
+app.get('/api/posts/:postId/comments/:commentId/edit-history', async (req, res) => {
+  try {
+    const gasUrl = getGasUrl();
+
+    if (!gasUrl) {
+      return res.status(500).json({
+        success: false,
+        history: [],
+        message: 'Google Apps Script 연결이 설정되지 않았습니다.',
+      });
+    }
+
+    const targetUrl =
+      gasUrl +
+      '?action=getCommentEditHistory&postId=' +
+      encodeURIComponent(req.params.postId) +
+      '&commentId=' +
+      encodeURIComponent(req.params.commentId);
+
+    const response = await fetch(targetUrl, {
+      cache: 'no-store',
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.success !== true) {
+      return res.status(502).json({
+        success: false,
+        history: [],
+        message:
+          data?.message ||
+          '댓글 수정 이력을 불러오지 못했습니다.',
+      });
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
+
+    return res.json({
+      success: true,
+      history: Array.isArray(data.history)
+        ? data.history
+        : [],
+    });
+  } catch (error: any) {
+    console.error('댓글 수정 이력 조회 실패:', error);
+
+    return res.status(500).json({
+      success: false,
+      history: [],
+      message: '댓글 수정 이력 조회 중 오류가 발생했습니다.',
+    });
+  }
+});
+
 app.get('/api/posts/:row/image', async (req, res) => {
   try {
     const row = req.params.row;
