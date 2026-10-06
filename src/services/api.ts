@@ -224,24 +224,23 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     return data;
   },
 
-  async likePost(id: string): Promise<Post> {
-    try {
-      const res = await fetch(`/api/posts/${id}/like`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        const json = await res.json();
-        return json.post || json;
-      }
-    } catch {}
-    const current = await this.getPosts();
-    const target = current.find((p) => p.id === id);
-    if (target) {
-      target.likes += 1;
-      localStorage.setItem('reading_challenge_posts', JSON.stringify(current));
-      return target;
+  async likePost(id: string): Promise<{ id: string; likes: number }> {
+    const res = await fetch(`/api/posts/${id}/like`, {
+      method: 'POST',
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true) {
+      throw new Error(
+        data?.message || '좋아요 저장에 실패했습니다.'
+      );
     }
-    throw new Error('게시글을 찾을 수 없습니다.');
+
+    return {
+      id,
+      likes: Number(data.likes) || 0,
+    };
   },
 
   async addComment(id: string, text: string, author: string): Promise<Post> {
