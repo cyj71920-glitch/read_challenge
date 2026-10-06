@@ -401,22 +401,29 @@ const handleChangeAdminPassword = async (newPw: string) => {
 
   const handleAddComment = async (postId: string, text: string, authorName: string) => {
     try {
-      const updated = await api.addComment(postId, text, authorName);
-      setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
-      addToast('success', '댓글 작성 완료', '따뜻한 응원 댓글이 등록되었습니다.');
-    } catch {
-      const newComment = {
-        id: `c_${Date.now()}`,
-        author: authorName,
-        text,
-        createdAt: new Date().toISOString(),
-      };
+      const comments = await api.addComment(postId, text, authorName);
+
       setPosts((prev) =>
         prev.map((p) =>
-          p.id === postId ? { ...p, comments: [...p.comments, newComment] } : p
+          p.id === postId
+            ? { ...p, comments }
+            : p
         )
       );
-      addToast('success', '댓글 작성 완료', '따뜻한 응원 댓글이 등록되었습니다.');
+
+      addToast(
+        'success',
+        '댓글 작성 완료',
+        '따뜻한 응원 댓글이 등록되었습니다.'
+      );
+    } catch (err: any) {
+      console.error('댓글 저장 실패:', err);
+
+      addToast(
+        'error',
+        '댓글 저장 실패',
+        err?.message || '댓글이 저장되지 않았습니다. 다시 시도해주세요.'
+      );
     }
   };
 
