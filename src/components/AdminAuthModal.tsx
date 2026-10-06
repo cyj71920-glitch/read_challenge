@@ -5,7 +5,7 @@ interface AdminAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  savedPassword?: string;
+  onLogin: (password: string) => Promise<boolean>;
   onToast: (type: 'success' | 'error' | 'info' | 'warning', title: string, message?: string) => void;
 }
 
@@ -13,27 +13,47 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  savedPassword = '1234',
+  onLogin,
   onToast,
 }) => {
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    const targetPassword = savedPassword || '1234';
-    if (password === targetPassword) {
+    if (!/^\d{4}$/.test(password.trim())) {
+      const message = '관리자 비밀번호는 숫자 4자리로 입력해주세요.';
+      setErrorMsg(message);
+      onToast('error', '인증 실패', message);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const success = await onLogin(password.trim());
+
+      if (!success) {
+        throw new Error('관리자 비밀번호가 일치하지 않습니다.');
+      }
+
       onToast('success', '관리자 인증 성공', '관리자 모드로 전환되었습니다.');
       setPassword('');
       onSuccess();
-    } else {
-      setErrorMsg('비밀번호가 일치하지 않습니다. 다시 입력해주세요.');
-      onToast('error', '인증 실패', '관리자 비밀번호가 일치하지 않습니다.');
+    } catch (error: any) {
+      const message =
+        error?.message ||
+        '관리자 비밀번호가 일치하지 않습니다.';
+      setErrorMsg(message);
+      onToast('error', '인증 실패', message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -96,7 +116,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
                   setPassword(e.target.value);
                   setErrorMsg('');
                 }}
-                placeholder="비밀번호를 입력하세요 (기본: 1234)"
+                placeholder="관리자 비밀번호 4자리"
                 autoFocus
                 className="w-full pl-10 pr-11 py-3 rounded-xl border-2 border-black bg-white text-sm font-black text-black focus:ring-2 focus:ring-[#FFD100] focus:bg-yellow-50/30"
                 required
@@ -128,10 +148,11 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl border-2 border-black bg-[#4ADE80] hover:bg-[#3ecf73] text-black text-xs font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none translate-y-[-1px] active:translate-y-[1px] transition flex items-center gap-1.5"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 rounded-xl border-2 border-black bg-[#4ADE80] hover:bg-[#3ecf73] text-black text-xs font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none translate-y-[-1px] active:translate-y-[1px] transition flex items-center gap-1.5 disabled:opacity-50"
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>관리자 로그인</span>
+              <span>{isSubmitting ? '확인 중...' : '관리자 로그인'}</span>
             </button>
           </div>
         </form>
