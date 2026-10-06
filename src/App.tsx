@@ -32,28 +32,22 @@ export default function App() {
   const [previewAllMonths, setPreviewAllMonths] = useState<boolean>(false);
 
   // Admin Authentication State
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('library_admin_auth') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-const [adminPassword, setAdminPassword] = useState<string>('1234');
+  // 관리자 비밀번호/세션 토큰은 브라우저 JS에 저장하지 않는다.
+  // 로그인 상태는 HttpOnly 쿠키를 서버에서 검증한 결과만 사용한다.
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState<boolean>(false);
- // 서버(GAS)에 저장된 관리자 비밀번호 불러오기
+
   useEffect(() => {
-    const loadAdminPassword = async () => {
+    const restoreAdminSession = async () => {
       try {
-        const password = await api.getAdminPassword();
-        setAdminPassword(password);
-      } catch (error) {
-        console.warn('관리자 비밀번호 불러오기 실패:', error);
+        const authenticated = await api.getAdminSession();
+        setIsAdminAuthenticated(authenticated);
+      } catch {
+        setIsAdminAuthenticated(false);
       }
     };
 
-    loadAdminPassword();
+    void restoreAdminSession();
   }, []);
   // Dynamic Challenge State
   const [challenges, setChallenges] = useState<ChallengeMonthInfo[]>(() => {
@@ -106,36 +100,38 @@ const [adminPassword, setAdminPassword] = useState<string>('1234');
     }
   };
 
-const handleChangeAdminPassword = async (newPw: string) => {
+const handleChangeAdminPassword = async (
+  currentPw: string,
+  newPw: string
+) => {
   try {
-    await api.saveAdminPassword(newPw);
-    setAdminPassword(newPw);
+    await api.saveAdminPassword(currentPw, newPw);
   } catch (error) {
     console.error('관리자 비밀번호 저장 실패:', error);
     throw error;
   }
 };
 
+  const handleAdminLogin = async (password: string): Promise<boolean> => {
+    await api.adminLogin(password);
+    setIsAdminAuthenticated(true);
+    return true;
+  };
+
   const handleAdminLoginSuccess = () => {
     setIsAdminAuthenticated(true);
     setIsAdminAuthModalOpen(false);
-    try {
-      localStorage.setItem('library_admin_auth', 'true');
-    } catch (e) {
-      console.error(e);
-    }
     setActiveView('admin');
   };
 
-  const handleAdminLogout = () => {
-    setIsAdminAuthenticated(false);
+  const handleAdminLogout = async () => {
     try {
-      localStorage.removeItem('library_admin_auth');
-    } catch (e) {
-      console.error(e);
+      await api.logoutAdmin();
+    } finally {
+      setIsAdminAuthenticated(false);
+      setActiveView('feed');
+      addToast('info', '로그아웃 완료', '관리자 모드에서 로그아웃되었습니다.');
     }
-    setActiveView('feed');
-    addToast('info', '로그아웃 완료', '관리자 모드에서 안전하게 로그아웃되었습니다.');
   };
 
   const handleSelectView = (view: 'feed' | 'race' | 'admin') => {
@@ -671,7 +667,6 @@ const handleChangeAdminPassword = async (newPw: string) => {
       onOpenEditPost={handleOpenEditModal}
       onRefreshData={loadData}
       onToast={addToast}
-      adminPassword={adminPassword}
       onChangeAdminPassword={handleChangeAdminPassword}
       onLogout={handleAdminLogout}
       previewAllMonths={previewAllMonths}
@@ -746,7 +741,7 @@ const handleChangeAdminPassword = async (newPw: string) => {
         isOpen={isAdminAuthModalOpen}
         onClose={() => setIsAdminAuthModalOpen(false)}
         onSuccess={handleAdminLoginSuccess}
-        savedPassword={adminPassword}
+        onLogin={handleAdminLogin}
         onToast={addToast}
       />
 
