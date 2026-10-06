@@ -317,7 +317,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
                   {/* Actions in Card Header: Edit (with password) & Admin Delete */}
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {onOpenEditModal && (
+                    {onOpenEditModal && !isAdmin && post.month >= 10 && (
                       <button
                         id={`btn-edit-${post.id}`}
                         onClick={(e) => {
