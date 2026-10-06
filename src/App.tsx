@@ -370,7 +370,7 @@ const handleChangeAdminPassword = async (newPw: string) => {
     };
   }, [currentMonth]);
 
-  const handleLikePost  const handleLikePost = async (postId: string) => {
+  const handleLikePost = async (postId: string) => {
     try {
       const updated = await api.likePost(postId);
       setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
