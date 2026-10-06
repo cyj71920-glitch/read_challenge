@@ -665,7 +665,9 @@ const handleChangeAdminPassword = async (newPw: string) => {
       onUpdateRoster={handleUpdateRoster}
       onResetRoster={handleResetRoster}
       onDeletePost={handleDeletePost}
-      onDeleteComment={handleDeleteComment}
+      onDeleteComment={(postId, commentId) => {
+        void handleDeleteComment(postId, commentId, '', true);
+      }}
       onOpenEditPost={handleOpenEditModal}
       onRefreshData={loadData}
       onToast={addToast}
