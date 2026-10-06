@@ -128,7 +128,7 @@ const gasUrl = getGasUrl();
       return res.json({ posts: [], total: 0 });
     }
 
-    const { month, grade, classNum, search, after } = req.query;
+    const { month, grade, classNum, search, after, viewerId } = req.query;
 
     // GAS에도 필터 조건을 그대로 전달한다.
     // GAS가 month/after를 처리하면 Vercel까지 전체 게시글을 가져오지 않아도 된다.
@@ -138,6 +138,9 @@ const gasUrl = getGasUrl();
     }
     if (after) {
       gasQuery.set('after', String(after));
+    }
+    if (viewerId) {
+      gasQuery.set('viewerId', String(viewerId));
     }
 
     const gasRequestUrl = gasQuery.toString()
@@ -532,6 +535,7 @@ app.post('/api/posts/:id/like', async (req, res) => {
       body: JSON.stringify({
         action: 'likePost',
         id: req.params.id,
+        viewerId: req.body?.viewerId,
       }),
     });
 
@@ -548,6 +552,7 @@ app.post('/api/posts/:id/like', async (req, res) => {
       success: true,
       id: req.params.id,
       likes: Number(data.likes) || 0,
+      liked: data.liked === true,
     });
   } catch (error: any) {
     console.error('좋아요 저장 실패:', error);
