@@ -425,7 +425,9 @@ app.get('/api/posts/:id/edit-history', async (req, res) => {
     const targetUrl =
       gasUrl +
       '?action=getPostEditHistory&id=' +
-      encodeURIComponent(req.params.id);
+      encodeURIComponent(req.params.id) +
+      '&adminToken=' +
+      encodeURIComponent(adminToken);
 
     const response = await fetch(targetUrl, {
       cache: 'no-store',
@@ -481,7 +483,9 @@ app.get('/api/posts/:postId/comments/:commentId/edit-history', async (req, res) 
       '?action=getCommentEditHistory&postId=' +
       encodeURIComponent(req.params.postId) +
       '&commentId=' +
-      encodeURIComponent(req.params.commentId);
+      encodeURIComponent(req.params.commentId) +
+      '&adminToken=' +
+      encodeURIComponent(adminToken);
 
     const response = await fetch(targetUrl, {
       cache: 'no-store',
