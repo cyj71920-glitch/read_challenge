@@ -385,7 +385,7 @@ const handleChangeAdminPassword = async (newPw: string) => {
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
-            ? { ...p, likes: result.likes }
+            ? { ...p, likes: result.likes, liked: result.liked }
             : p
         )
       );
