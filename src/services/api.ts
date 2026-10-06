@@ -1,4 +1,4 @@
-import { Post, CommentItem, StudentRosterItem, GasConfig, ChallengeMonthInfo, PostEditHistoryItem } from '../types';
+import { Post, CommentItem, CommentEditHistoryItem, StudentRosterItem, GasConfig, ChallengeMonthInfo, PostEditHistoryItem } from '../types';
 
 let fallbackViewerId = '';
 
@@ -78,6 +78,26 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     if (!res.ok || data?.success !== true) {
       throw new Error(
         data?.message || '수정 이력을 불러오는데 실패했습니다.'
+      );
+    }
+
+    return Array.isArray(data.history) ? data.history : [];
+  },
+
+  async getCommentEditHistory(
+    postId: string,
+    commentId: string
+  ): Promise<CommentEditHistoryItem[]> {
+    const res = await fetch(
+      `/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/edit-history`,
+      { cache: 'no-store' }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true) {
+      throw new Error(
+        data?.message || '댓글 수정 이력을 불러오는데 실패했습니다.'
       );
     }
 
