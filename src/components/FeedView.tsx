@@ -28,10 +28,26 @@ interface FeedViewProps {
   searchQuery: string;
   onChangeSearch: (query: string) => void;
   onLikePost: (postId: string) => void;
-  onAddComment: (postId: string, text: string, authorName: string) => void;
+  onAddComment: (
+    postId: string,
+    text: string,
+    authorName: string,
+    password: string
+  ) => Promise<boolean>;
+  onUpdateComment: (
+    postId: string,
+    commentId: string,
+    text: string,
+    password: string
+  ) => Promise<boolean>;
   isAdmin: boolean;
   onDeletePost?: (postId: string) => void;
-  onDeleteComment?: (postId: string, commentId: string) => void;
+  onDeleteComment?: (
+    postId: string,
+    commentId: string,
+    password?: string,
+    isAdmin?: boolean
+  ) => Promise<boolean>;
   onOpenSubmitModal: () => void;
   onOpenEditModal?: (post: Post) => void;
   onSelectImageZoom: (imageUrl: string, title: string) => void;
@@ -47,6 +63,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
   onChangeSearch,
   onLikePost,
   onAddComment,
+  onUpdateComment,
   isAdmin,
   onDeletePost,
   onDeleteComment,
@@ -56,7 +73,15 @@ export const FeedView: React.FC<FeedViewProps> = ({
 }) => {
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [commentAuthors, setCommentAuthors] = useState<Record<string, string>>({});
+  const [commentPasswords, setCommentPasswords] = useState<Record<string, string>>({});
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
+  const [commentAction, setCommentAction] = useState<{
+    postId: string;
+    commentId: string;
+    mode: 'edit' | 'delete';
+  } | null>(null);
+  const [commentActionText, setCommentActionText] = useState('');
+  const [commentActionPassword, setCommentActionPassword] = useState('');
   const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>({});
   const [sortBy, setSortBy] = useState<'newest' | 'likes'>('newest');
 
@@ -102,13 +127,105 @@ export const FeedView: React.FC<FeedViewProps> = ({
     }));
   };
 
-  const handleCommentSubmit = (postId: string, e: React.FormEvent) => {
+  const handleCommentSubmit = async (postId: string, e: React.FormEvent) => {
     e.preventDefault();
+
     const text = commentInputs[postId]?.trim();
-    if (!text) return;
     const author = commentAuthors[postId]?.trim() || '친구';
-    onAddComment(postId, text, author);
-    setCommentInputs((prev) => ({ ...prev, [postId]: '' }));
+    const password = commentPasswords[postId]?.trim() || '';
+
+    if (!text || !/^\d{4}$/.test(password)) {
+      return;
+    }
+
+    const success = await onAddComment(
+      postId,
+      text,
+      author,
+      password
+    );
+
+    if (success) {
+      setCommentInputs((prev) => ({ ...prev, [postId]: '' }));
+      setCommentPasswords((prev) => ({ ...prev, [postId]: '' }));
+    }
+  };
+
+  const startCommentEdit = (
+    postId: string,
+    commentId: string,
+    currentText: string
+  ) => {
+    setCommentAction({
+      postId,
+      commentId,
+      mode: 'edit',
+    });
+    setCommentActionText(currentText);
+    setCommentActionPassword('');
+  };
+
+  const startCommentDelete = (
+    postId: string,
+    commentId: string
+  ) => {
+    setCommentAction({
+      postId,
+      commentId,
+      mode: 'delete',
+    });
+    setCommentActionText('');
+    setCommentActionPassword('');
+  };
+
+  const cancelCommentAction = () => {
+    setCommentAction(null);
+    setCommentActionText('');
+    setCommentActionPassword('');
+  };
+
+  const submitCommentEdit = async () => {
+    if (
+      !commentAction ||
+      commentAction.mode !== 'edit' ||
+      !commentActionText.trim() ||
+      !/^\d{4}$/.test(commentActionPassword)
+    ) {
+      return;
+    }
+
+    const success = await onUpdateComment(
+      commentAction.postId,
+      commentAction.commentId,
+      commentActionText.trim(),
+      commentActionPassword
+    );
+
+    if (success) {
+      cancelCommentAction();
+    }
+  };
+
+  const submitCommentDelete = async () => {
+    if (
+      !commentAction ||
+      commentAction.mode !== 'delete' ||
+      !onDeleteComment ||
+      !/^\d{4}$/.test(commentActionPassword)
+    ) {
+      return;
+    }
+
+    const success = await onDeleteComment(
+      commentAction.postId,
+      commentAction.commentId,
+      commentActionPassword,
+      false
+    );
+
+    if (success) {
+      cancelCommentAction();
+    }
   };
 
   // Sort posts
@@ -511,7 +628,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                                           confirmLabel: '댓글 삭제',
                                           isDestructive: true,
                                           onConfirm: () => {
-                                            onDeleteComment(post.id, c.id);
+                                            onDeleteComment(post.id, c.id, '', true);
                                           },
                                         });
                                       }}
@@ -523,30 +640,189 @@ export const FeedView: React.FC<FeedViewProps> = ({
                                   )}
                                 </div>
                               </div>
-                              <p className="text-slate-800 font-bold text-xs pl-1">{c.text}</p>
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-slate-800 font-bold text-xs pl-1 flex-1">
+                                  {c.text}
+                                  {c.isEdited && (
+                                    <span className="ml-1 text-[9px] text-slate-400 font-bold">
+                                      (수정됨)
+                                    </span>
+                                  )}
+                                </p>
+
+                                {!isAdmin && (
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        startCommentEdit(
+                                          post.id,
+                                          c.id,
+                                          c.text
+                                        )
+                                      }
+                                      className="px-1.5 py-0.5 rounded border border-black bg-white hover:bg-yellow-50 text-[9px] font-black"
+                                    >
+                                      수정
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        startCommentDelete(
+                                          post.id,
+                                          c.id
+                                        )
+                                      }
+                                      className="px-1.5 py-0.5 rounded border border-black bg-white hover:bg-red-50 text-red-600 text-[9px] font-black"
+                                    >
+                                      삭제
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {commentAction?.postId === post.id &&
+                                commentAction.commentId === c.id &&
+                                commentAction.mode === 'edit' && (
+                                  <div className="mt-2 p-2 rounded-lg border border-black bg-white space-y-1.5">
+                                    <input
+                                      type="text"
+                                      value={commentActionText}
+                                      onChange={(e) =>
+                                        setCommentActionText(e.target.value)
+                                      }
+                                      className="w-full px-2 py-1.5 rounded-lg border-2 border-black text-xs font-bold"
+                                      placeholder="수정할 댓글"
+                                    />
+                                    <div className="flex gap-1.5">
+                                      <input
+                                        type="password"
+                                        inputMode="numeric"
+                                        maxLength={4}
+                                        pattern="[0-9]{4}"
+                                        value={commentActionPassword}
+                                        onChange={(e) =>
+                                          setCommentActionPassword(
+                                            e.target.value
+                                              .replace(/\D/g, '')
+                                              .slice(0, 4)
+                                          )
+                                        }
+                                        className="w-28 px-2 py-1.5 rounded-lg border-2 border-black text-xs font-black"
+                                        placeholder="비밀번호 4자리"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={submitCommentEdit}
+                                        className="px-2 py-1 rounded-lg border-2 border-black bg-[#4ADE80] text-[10px] font-black"
+                                      >
+                                        저장
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={cancelCommentAction}
+                                        className="px-2 py-1 rounded-lg border-2 border-black bg-white text-[10px] font-black"
+                                      >
+                                        취소
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+
+                              {commentAction?.postId === post.id &&
+                                commentAction.commentId === c.id &&
+                                commentAction.mode === 'delete' && (
+                                  <div className="mt-2 p-2 rounded-lg border border-red-300 bg-red-50 space-y-1.5">
+                                    <p className="text-[10px] font-black text-red-700">
+                                      댓글 작성 시 설정한 비밀번호 4자리를 입력하세요.
+                                    </p>
+                                    <div className="flex gap-1.5">
+                                      <input
+                                        type="password"
+                                        inputMode="numeric"
+                                        maxLength={4}
+                                        pattern="[0-9]{4}"
+                                        value={commentActionPassword}
+                                        onChange={(e) =>
+                                          setCommentActionPassword(
+                                            e.target.value
+                                              .replace(/\D/g, '')
+                                              .slice(0, 4)
+                                          )
+                                        }
+                                        className="w-28 px-2 py-1.5 rounded-lg border-2 border-black bg-white text-xs font-black"
+                                        placeholder="비밀번호 4자리"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={submitCommentDelete}
+                                        className="px-2 py-1 rounded-lg border-2 border-black bg-red-500 text-white text-[10px] font-black"
+                                      >
+                                        삭제
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={cancelCommentAction}
+                                        className="px-2 py-1 rounded-lg border-2 border-black bg-white text-[10px] font-black"
+                                      >
+                                        취소
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                             </div>
                           ))
                         )}
                       </div>
 
-                      {/* Peer Comment Form: Name and Content input */}
-                      <form onSubmit={(e) => handleCommentSubmit(post.id, e)} className="space-y-1.5 pt-1">
-                        <div className="flex gap-1.5">
+                      {/* Peer Comment Form: Name, password and content input */}
+                      <form
+                        onSubmit={(e) => handleCommentSubmit(post.id, e)}
+                        className="space-y-1.5 pt-1"
+                      >
+                        <div className="grid grid-cols-2 gap-1.5">
                           <input
                             type="text"
                             value={commentAuthors[post.id] || ''}
                             onChange={(e) =>
-                              setCommentAuthors((prev) => ({ ...prev, [post.id]: e.target.value }))
+                              setCommentAuthors((prev) => ({
+                                ...prev,
+                                [post.id]: e.target.value,
+                              }))
                             }
                             placeholder="내 이름 (예: 김민준)"
-                            className="w-1/3 px-2.5 py-1.5 text-xs font-black rounded-xl border-2 border-black bg-white focus:outline-none focus:bg-yellow-50"
+                            className="px-2.5 py-1.5 text-xs font-black rounded-xl border-2 border-black bg-white focus:outline-none focus:bg-yellow-50"
                             required
                           />
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            maxLength={4}
+                            pattern="[0-9]{4}"
+                            value={commentPasswords[post.id] || ''}
+                            onChange={(e) =>
+                              setCommentPasswords((prev) => ({
+                                ...prev,
+                                [post.id]: e.target.value
+                                  .replace(/\D/g, '')
+                                  .slice(0, 4),
+                              }))
+                            }
+                            placeholder="수정·삭제 비밀번호 4자리"
+                            className="px-2.5 py-1.5 text-xs font-black rounded-xl border-2 border-black bg-white focus:outline-none focus:bg-yellow-50"
+                            required
+                          />
+                        </div>
+
+                        <div className="flex gap-1.5">
                           <input
                             type="text"
                             value={commentInputs[post.id] || ''}
                             onChange={(e) =>
-                              setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
+                              setCommentInputs((prev) => ({
+                                ...prev,
+                                [post.id]: e.target.value,
+                              }))
                             }
                             placeholder="응원 댓글 내용을 입력하세요..."
                             className="flex-1 px-3 py-1.5 text-xs font-bold rounded-xl border-2 border-black bg-white focus:outline-none focus:bg-yellow-50"
@@ -560,6 +836,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
                             <span>등록</span>
                           </button>
                         </div>
+
+                        <p className="text-[9px] font-bold text-slate-500">
+                          비밀번호는 나중에 내 댓글을 수정하거나 삭제할 때 사용합니다.
+                        </p>
                       </form>
                     </div>
                   )}
