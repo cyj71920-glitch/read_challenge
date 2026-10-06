@@ -273,13 +273,19 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     };
   },
 
-  async addComment(id: string, text: string, author: string): Promise<CommentItem[]> {
+  async addComment(
+    id: string,
+    text: string,
+    author: string,
+    password: string
+  ): Promise<CommentItem[]> {
     const res = await fetch(`/api/posts/${id}/comment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         author: author.trim(),
         text: text.trim(),
+        password: password.trim(),
       }),
     });
 
@@ -294,25 +300,62 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     return data.comments;
   },
 
-  async deleteComment(postId: string, commentId: string): Promise<Post> {
-    try {
-      const res = await fetch(`/api/posts/${postId}/comments/${commentId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        const json = await res.json();
-        return json.post || json;
+  async updateComment(
+    postId: string,
+    commentId: string,
+    text: string,
+    password: string
+  ): Promise<CommentItem[]> {
+    const res = await fetch(
+      `/api/posts/${postId}/comments/${commentId}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text.trim(),
+          password: password.trim(),
+        }),
       }
-    } catch {}
+    );
 
-    const current = await this.getPosts();
-    const target = current.find((p) => p.id === postId);
-    if (target) {
-      target.comments = target.comments.filter((c) => c.id !== commentId);
-      localStorage.setItem('reading_challenge_posts', JSON.stringify(current));
-      return target;
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true || !Array.isArray(data?.comments)) {
+      throw new Error(
+        data?.message || '댓글 수정에 실패했습니다.'
+      );
     }
-    throw new Error('게시글을 찾을 수 없습니다.');
+
+    return data.comments;
+  },
+
+  async deleteComment(
+    postId: string,
+    commentId: string,
+    password?: string,
+    isAdmin?: boolean
+  ): Promise<CommentItem[]> {
+    const res = await fetch(
+      `/api/posts/${postId}/comments/${commentId}`,
+      {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password: password || '',
+          isAdmin: isAdmin === true,
+        }),
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true || !Array.isArray(data?.comments)) {
+      throw new Error(
+        data?.message || '댓글 삭제에 실패했습니다.'
+      );
+    }
+
+    return data.comments;
   },
 
 async getRoster(): Promise<StudentRosterItem[]> {
