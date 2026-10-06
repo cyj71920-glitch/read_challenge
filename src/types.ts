@@ -30,6 +30,8 @@ export interface CommentItem {
   gradeClass?: string;
   text: string;
   createdAt: string;
+  isEdited?: boolean;
+  editedAt?: string;
 }
 
 export interface Post {
