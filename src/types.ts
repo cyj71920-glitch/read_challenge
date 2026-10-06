@@ -45,6 +45,7 @@ export interface Post {
   month: number; // 챌린지 월 (9, 10, 11, 12)
   challengeTitle: string; // "첫문장 챌린지" 등
   likes: number;
+  liked?: boolean;
   comments: CommentItem[];
   createdAt: string;
   syncedToGas?: boolean;
