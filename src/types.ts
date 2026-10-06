@@ -49,7 +49,30 @@ export interface Post {
   createdAt: string;
   syncedToGas?: boolean;
   isDeleted?: boolean;
+  isEdited?: boolean;
+  editedAt?: string;
   password?: string; // 4자리 숫자 비밀번호 (학생 본인 글 수정용)
+}
+
+export interface PostEditHistorySnapshot {
+  grade: number | string;
+  classNum: number | string;
+  studentNum: number | string;
+  studentName: string;
+  bookTitle: string;
+  bookAuthor: string;
+  content: string;
+  imageUrl: string;
+}
+
+export interface PostEditHistoryItem {
+  editedAt: string;
+  postId: string;
+  month: number;
+  changedFields: string[];
+  before: PostEditHistorySnapshot;
+  after: PostEditHistorySnapshot;
+  passwordChanged: boolean;
 }
 
 export interface StudentRosterItem {
