@@ -34,6 +34,15 @@ export interface CommentItem {
   editedAt?: string;
 }
 
+export interface CommentEditHistoryItem {
+  editedAt: string;
+  postId: string;
+  commentId: string;
+  author: string;
+  beforeText: string;
+  afterText: string;
+}
+
 export interface Post {
   id: string;
   grade: number; // 학년 (1~3)
