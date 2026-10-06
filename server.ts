@@ -584,6 +584,7 @@ app.post('/api/posts/:id/comment', async (req, res) => {
         author: req.body?.author,
         text: req.body?.text,
         gradeClass: req.body?.gradeClass || '',
+        password: req.body?.password,
       }),
     });
 
@@ -612,18 +613,100 @@ app.post('/api/posts/:id/comment', async (req, res) => {
   }
 });
 
-app.delete('/api/posts/:postId/comments/:commentId', (req, res) => {
-  const { postId, commentId } = req.params;
-  const post = postsStore.find((p) => p.id === postId);
-  if (!post) {
-    return res.status(404).json({ success: false, message: '게시글이 존재하지 않습니다.' });
+app.put('/api/posts/:postId/comments/:commentId', async (req, res) => {
+  try {
+    const gasUrl = getGasUrl();
+
+    if (!gasUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google Apps Script 연결이 설정되지 않았습니다.',
+      });
+    }
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'updateComment',
+        id: req.params.postId,
+        commentId: req.params.commentId,
+        text: req.body?.text,
+        password: req.body?.password,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.success !== true || !Array.isArray(data?.comments)) {
+      return res.status(400).json({
+        success: false,
+        message: data?.message || '댓글 수정에 실패했습니다.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      comments: data.comments,
+    });
+  } catch (error: any) {
+    console.error('댓글 수정 실패:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: '댓글 수정 중 오류가 발생했습니다.',
+    });
   }
-  const cIndex = post.comments.findIndex((c) => c.id === commentId);
-  if (cIndex === -1) {
-    return res.status(404).json({ success: false, message: '해당 댓글을 찾을 수 없습니다.' });
+});
+
+app.delete('/api/posts/:postId/comments/:commentId', async (req, res) => {
+  try {
+    const gasUrl = getGasUrl();
+
+    if (!gasUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google Apps Script 연결이 설정되지 않았습니다.',
+      });
+    }
+
+    const action =
+      req.body?.isAdmin === true
+        ? 'deleteCommentAdmin'
+        : 'deleteCommentStudent';
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        id: req.params.postId,
+        commentId: req.params.commentId,
+        password: req.body?.password || '',
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.success !== true || !Array.isArray(data?.comments)) {
+      return res.status(400).json({
+        success: false,
+        message: data?.message || '댓글 삭제에 실패했습니다.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      comments: data.comments,
+    });
+  } catch (error: any) {
+    console.error('댓글 삭제 실패:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: '댓글 삭제 중 오류가 발생했습니다.',
+    });
   }
-  post.comments.splice(cIndex, 1);
-  res.json({ success: true, comments: post.comments });
 });
 
 // 4. Student Roster Management & Status Cross-Check
