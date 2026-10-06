@@ -411,19 +411,18 @@ const handleChangeAdminPassword = async (newPw: string) => {
   };
 
   const handleDeletePost = async (postId: string) => {
-    setPosts((prev) => {
-      const updated = prev.filter((p) => p.id !== postId);
-      knownPostIdsRef.current.delete(postId);
-      return updated;
-    });
-
     try {
       await api.deletePost(postId, undefined, isAdminAuthenticated);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      knownPostIdsRef.current.delete(postId);
       addToast('info', '삭제 완료', '게시글이 안전하게 삭제되었습니다.');
     } catch (err: any) {
-      console.warn('Delete request returned warning:', err);
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
-      addToast('info', '삭제 완료', '게시글이 삭제되었습니다.');
+      console.error('게시글 삭제 실패:', err);
+      addToast(
+        'error',
+        '삭제 실패',
+        err?.message || '게시글이 삭제되지 않았습니다. 다시 시도해주세요.'
+      );
     }
   };
 
