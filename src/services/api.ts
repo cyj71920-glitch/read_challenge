@@ -1,4 +1,4 @@
-import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo, PostEditHistoryItem } from '../types';
+import { Post, CommentItem, StudentRosterItem, GasConfig, ChallengeMonthInfo, PostEditHistoryItem } from '../types';
 
 let fallbackViewerId = '';
 
@@ -273,34 +273,25 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     };
   },
 
-  async addComment(id: string, text: string, author: string): Promise<Post> {
-    const newComment = {
-      id: `c_${Date.now()}`,
-      author,
-      text,
-      createdAt: new Date().toISOString(),
-    };
+  async addComment(id: string, text: string, author: string): Promise<CommentItem[]> {
+    const res = await fetch(`/api/posts/${id}/comment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        author: author.trim(),
+        text: text.trim(),
+      }),
+    });
 
-    try {
-      const res = await fetch(`/api/posts/${id}/comment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newComment),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        return json.post || json;
-      }
-    } catch {}
+    const data = await res.json().catch(() => ({}));
 
-    const current = await this.getPosts();
-    const target = current.find((p) => p.id === id);
-    if (target) {
-      target.comments = [...target.comments, newComment];
-      localStorage.setItem('reading_challenge_posts', JSON.stringify(current));
-      return target;
+    if (!res.ok || data?.success !== true || !Array.isArray(data?.comments)) {
+      throw new Error(
+        data?.message || '댓글 저장에 실패했습니다.'
+      );
     }
-    throw new Error('게시글을 찾을 수 없습니다.');
+
+    return data.comments;
   },
 
   async deleteComment(postId: string, commentId: string): Promise<Post> {
