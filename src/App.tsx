@@ -380,11 +380,21 @@ const handleChangeAdminPassword = async (newPw: string) => {
 
   const handleLikePost = async (postId: string) => {
     try {
-      const updated = await api.likePost(postId);
-      setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
-    } catch {
+      const result = await api.likePost(postId);
+
       setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, likes: p.likes + 1 } : p))
+        prev.map((p) =>
+          p.id === postId
+            ? { ...p, likes: result.likes }
+            : p
+        )
+      );
+    } catch (err: any) {
+      console.error('좋아요 저장 실패:', err);
+      addToast(
+        'error',
+        '좋아요 저장 실패',
+        err?.message || '좋아요가 저장되지 않았습니다. 다시 시도해주세요.'
       );
     }
   };
