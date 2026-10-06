@@ -177,12 +177,24 @@ const gasUrl = getGasUrl();
     );
 
     const postsWithImageUrls = list.map((p: Post) => {
+  const rawImageUrl = String(p.imageUrl || '');
   const match = String(p.id).match(/^gas-row-(\d+)$/);
 
+  // 새 방식: GAS가 Drive의 일반 URL을 반환하면 브라우저가
+  // Vercel을 거치지 않고 해당 URL에서 이미지를 직접 받는다.
+  if (/^https?:\/\//i.test(rawImageUrl)) {
+    return {
+      ...p,
+      imageUrl: rawImageUrl,
+    };
+  }
+
+  // 기존 Base64 방식과의 호환:
+  // 아직 마이그레이션되지 않은 과거 행만 기존 이미지 프록시를 사용한다.
   return {
     ...p,
     imageUrl:
-      p.imageUrl && match
+      rawImageUrl && match
         ? `/api/posts/${match[1]}/image`
         : '',
   };
