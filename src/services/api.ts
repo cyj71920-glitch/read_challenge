@@ -1,4 +1,4 @@
-import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo } from '../types';
+import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo, PostEditHistoryItem } from '../types';
 
 export const api = {
   // Posts
@@ -41,6 +41,23 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
     ? data
     : data.posts || [];
 },
+
+  async getPostEditHistory(id: string): Promise<PostEditHistoryItem[]> {
+    const res = await fetch(
+      `/api/posts/${encodeURIComponent(id)}/edit-history`,
+      { cache: 'no-store' }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data?.success !== true) {
+      throw new Error(
+        data?.message || '수정 이력을 불러오는데 실패했습니다.'
+      );
+    }
+
+    return Array.isArray(data.history) ? data.history : [];
+  
   // Admin Password
   async getAdminPassword(): Promise<string> {
     try {
