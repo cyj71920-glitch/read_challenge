@@ -128,12 +128,28 @@ const gasUrl = getGasUrl();
       return res.json({ posts: [], total: 0 });
     }
 
-    const response = await fetch(gasUrl);
+    const { month, grade, classNum, search, after } = req.query;
+
+    // GAS에도 필터 조건을 그대로 전달한다.
+    // GAS가 month/after를 처리하면 Vercel까지 전체 게시글을 가져오지 않아도 된다.
+    const gasQuery = new URLSearchParams();
+    if (month && month !== 'all') {
+      gasQuery.set('month', String(month));
+    }
+    if (after) {
+      gasQuery.set('after', String(after));
+    }
+
+    const gasRequestUrl = gasQuery.toString()
+      ? `${gasUrl}?${gasQuery.toString()}`
+      : gasUrl;
+
+    const response = await fetch(gasRequestUrl, {
+      cache: 'no-store',
+    });
     const data = await response.json();
 
     let list = Array.isArray(data.posts) ? data.posts : [];
-
-    const { month, grade, classNum, search, after } = req.query;
 
     // 실시간 확인용:
     // 특정 시간 이후에 작성된 새 글만 반환
@@ -200,6 +216,7 @@ const gasUrl = getGasUrl();
   };
 });
 
+res.setHeader('Cache-Control', 'no-store');
 res.json({
   posts: postsWithImageUrls,
   total: postsWithImageUrls.length,
