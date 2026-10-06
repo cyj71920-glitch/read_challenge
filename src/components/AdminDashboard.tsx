@@ -318,11 +318,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // 관리자 통계는 학생 화면에서 선택한 월과 무관하게 실제 달력 기준 현재 월로 집계
+  const adminStatsMonth = useMemo(() => {
+    const calendarMonth = new Date().getMonth() + 1;
+    const availableMonths = challenges.map((challenge) => challenge.month);
+    return availableMonths.includes(calendarMonth)
+      ? calendarMonth
+      : (typeof currentMonth === 'number' ? currentMonth : (availableMonths[0] ?? 9));
+  }, [challenges, currentMonth]);
+
   // Calculate high-level stats
   const stats = useMemo(() => {
     const activePosts = posts.filter((p) => !p.isDeleted);
-    const targetMonth = currentMonth === 'all' ? 9 : currentMonth;
-    const monthPosts = activePosts.filter((p) => p.month === targetMonth);
+    const monthPosts = activePosts.filter((p) => p.month === adminStatsMonth);
 
     // Unique participants this month
     const monthParticipants = new Set(
@@ -340,13 +348,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       totalStudents,
       overallRate,
     };
-  }, [posts, roster, currentMonth]);
+  }, [posts, roster, adminStatsMonth]);
 
   // Compute detailed roster with submission status
   const rosterDetailedList = useMemo(() => {
     const activePosts = posts.filter((p) => !p.isDeleted);
-    const targetMonth = currentMonth === 'all' ? 9 : currentMonth;
-
     return roster.map((student) => {
       const studentPosts = activePosts.filter(
         (p) =>
@@ -355,7 +361,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           (p.studentNum === student.studentNum || p.studentName.trim() === student.name.trim())
       );
 
-      const submittedCurrent = studentPosts.some((p) => p.month === targetMonth);
+      const submittedCurrent = studentPosts.some((p) => p.month === adminStatsMonth);
       const submittedMonths = Array.from(new Set(studentPosts.map((p) => Number(p.month)))).sort((a: number, b: number) => a - b);
 
       return {
@@ -366,7 +372,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         lastSubmittedAt: studentPosts[studentPosts.length - 1]?.createdAt,
       };
     });
-  }, [roster, posts, currentMonth]);
+  }, [roster, posts, adminStatsMonth]);
 
   // Filtered Roster
   const filteredRoster = useMemo(() => {
@@ -482,7 +488,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const unsubmittedCount = Math.max(0, stats.totalStudents - stats.currentMonthParticipants);
       await api.sendTeacherEmailAlert({
         adminEmail: gasConfig.adminEmail,
-        month: currentMonth === 'all' ? 9 : currentMonth,
+        month: adminStatsMonth,
         unsubmittedCount,
         submittedCount: stats.currentMonthParticipants,
       });
@@ -654,7 +660,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="bg-[#3B82F6] rounded-[2rem] p-5 border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-white">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase bg-black text-white px-2.5 py-1 rounded-md border-2 border-white">
-                  이번 달 참여 학생
+                  ${adminStatsMonth}월 참여 학생
                 </span>
                 <Users className="w-5 h-5 text-white" />
               </div>
@@ -669,7 +675,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="bg-[#FF6B00] rounded-[2rem] p-5 border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-white">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase bg-black text-white px-2.5 py-1 rounded-md border-2 border-white">
-                  이번 달 미참여 학생
+                  ${adminStatsMonth}월 미참여 학생
                 </span>
                 <AlertTriangle className="w-5 h-5 text-yellow-300" />
               </div>
