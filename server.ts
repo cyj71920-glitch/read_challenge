@@ -14,54 +14,224 @@ const getGasUrl = () =>
   process.env.GAS_WEB_APP_URL ||
   '';
 
+const ADMIN_COOKIE_NAME = 'reading_admin_session';
+const ADMIN_COOKIE_MAX_AGE = 12 * 60 * 60;
+
+const getCookieValue = (req: express.Request, name: string): string => {
+  const cookieHeader = String(req.headers.cookie || '');
+  const parts = cookieHeader.split(';');
+
+  for (const part of parts) {
+    const [rawKey, ...rawValue] = part.trim().split('=');
+    if (rawKey === name) {
+      return decodeURIComponent(rawValue.join('=') || '');
+    }
+  }
+
+  return '';
+};
+
+const verifyAdminTokenWithGas = async (token: string): Promise<boolean> => {
+  if (!token) return false;
+
+  const gasUrl = getGasUrl();
+  if (!gasUrl) return false;
+
+  try {
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'verifyAdminSession',
+        adminToken: token,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    return response.ok && data?.success === true && data?.authenticated === true;
+  } catch (error) {
+    console.error('관리자 세션 검증 실패:', error);
+    return false;
+  }
+};
+
+const requireAdminSession = async (
+  req: express.Request,
+  res: express.Response
+): Promise<string | null> => {
+  const token = getCookieValue(req, ADMIN_COOKIE_NAME);
+  const valid = await verifyAdminTokenWithGas(token);
+
+  if (!valid) {
+    res.status(401).json({
+      success: false,
+      authenticated: false,
+      message: '관리자 로그인이 필요하거나 세션이 만료되었습니다.',
+    });
+    return null;
+  }
+
+  return token;
+};
+
+const setAdminCookie = (res: express.Response, token: string) => {
+  const secure = process.env.NODE_ENV === 'production';
+  const parts = [
+    `${ADMIN_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    'HttpOnly',
+    'Path=/',
+    'SameSite=Lax',
+    `Max-Age=${ADMIN_COOKIE_MAX_AGE}`,
+  ];
+
+  if (secure) {
+    parts.push('Secure');
+  }
+
+  res.setHeader('Set-Cookie', parts.join('; '));
+};
+
+const clearAdminCookie = (res: express.Response) => {
+  const secure = process.env.NODE_ENV === 'production';
+  const parts = [
+    `${ADMIN_COOKIE_NAME}=`,
+    'HttpOnly',
+    'Path=/',
+    'SameSite=Lax',
+    'Max-Age=0',
+  ];
+
+  if (secure) {
+    parts.push('Secure');
+  }
+
+  res.setHeader('Set-Cookie', parts.join('; '));
+};
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ---------------- API ROUTES ----------------
-// Admin Password
-app.get('/api/admin/password', async (req, res) => {
+// Admin Authentication
+app.post('/api/admin/login', async (req, res) => {
   try {
-const gasUrl = getGasUrl();
-    if (!gasUrl) {
-      return res.json({
-        success: true,
-        password: '1234',
+    const password = String(req.body?.password || '').trim();
+
+    if (!/^\d{4}$/.test(password)) {
+      return res.status(400).json({
+        success: false,
+        authenticated: false,
+        message: '관리자 비밀번호는 숫자 4자리로 입력해주세요.',
       });
     }
 
-    const response = await fetch(
-      gasUrl + '?action=getAdminPassword'
-    );
+    const gasUrl = getGasUrl();
+    if (!gasUrl) {
+      return res.status(500).json({
+        success: false,
+        authenticated: false,
+        message: 'Google Apps Script 연결이 설정되지 않았습니다.',
+      });
+    }
 
-    const data = await response.json();
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'verifyAdminPassword',
+        password,
+      }),
+    });
 
-    res.json({
+    const data = await response.json().catch(() => ({}));
+
+    if (
+      !response.ok ||
+      data?.success !== true ||
+      data?.authenticated !== true ||
+      !data?.token
+    ) {
+      return res.status(401).json({
+        success: false,
+        authenticated: false,
+        message: data?.message || '관리자 비밀번호가 일치하지 않습니다.',
+      });
+    }
+
+    setAdminCookie(res, String(data.token));
+
+    return res.json({
       success: true,
-      password: String(data.password || '1234'),
+      authenticated: true,
     });
   } catch (error: any) {
-    console.error('관리자 비밀번호 불러오기 실패:', error);
-
-    res.status(500).json({
+    console.error('관리자 로그인 실패:', error);
+    return res.status(500).json({
       success: false,
-      message: '관리자 비밀번호를 불러오지 못했습니다.',
-      password: '1234',
+      authenticated: false,
+      message: '관리자 로그인 중 오류가 발생했습니다.',
     });
   }
 });
 
+app.get('/api/admin/session', async (req, res) => {
+  const token = getCookieValue(req, ADMIN_COOKIE_NAME);
+  const authenticated = await verifyAdminTokenWithGas(token);
+
+  if (!authenticated) {
+    clearAdminCookie(res);
+  }
+
+  return res.json({
+    success: true,
+    authenticated,
+  });
+});
+
+app.post('/api/admin/logout', async (req, res) => {
+  const token = getCookieValue(req, ADMIN_COOKIE_NAME);
+
+  try {
+    const gasUrl = getGasUrl();
+
+    if (token && gasUrl) {
+      await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'logoutAdmin',
+          adminToken: token,
+        }),
+      });
+    }
+  } catch (error) {
+    console.error('관리자 GAS 로그아웃 처리 실패:', error);
+  }
+
+  clearAdminCookie(res);
+
+  return res.json({
+    success: true,
+    authenticated: false,
+  });
+});
+
 app.post('/api/admin/password', async (req, res) => {
   try {
-    const password = String(req.body.password || '').trim();
+    const adminToken = await requireAdminSession(req, res);
+    if (!adminToken) return;
 
-    if (password.length !== 4) {
+    const currentPassword = String(req.body?.currentPassword || '').trim();
+    const newPassword = String(req.body?.newPassword || '').trim();
+
+    if (!/^\d{4}$/.test(currentPassword) || !/^\d{4}$/.test(newPassword)) {
       return res.status(400).json({
         success: false,
-        message: '관리자 비밀번호는 4자리로 입력해주세요.',
+        message: '현재 비밀번호와 새 비밀번호를 숫자 4자리로 입력해주세요.',
       });
     }
 
-const gasUrl = getGasUrl();
+    const gasUrl = getGasUrl();
     if (!gasUrl) {
       return res.status(500).json({
         success: false,
@@ -69,51 +239,54 @@ const gasUrl = getGasUrl();
       });
     }
 
-    const response = await fetch(gasUrl, {
+    const verifyResponse = await fetch(gasUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'saveAdminPassword',
-        password: password,
+        action: 'verifyAdminPassword',
+        password: currentPassword,
       }),
     });
 
-    const responseText = await response.text();
+    const verifyData = await verifyResponse.json().catch(() => ({}));
 
-let data: any;
-
-try {
-  data = JSON.parse(responseText);
-} catch {
-  console.error(
-    'GAS가 JSON이 아닌 응답을 반환했습니다:',
-    response.status,
-    responseText.substring(0, 300)
-  );
-
-  return res.status(502).json({
-    success: false,
-    message: 'Google Apps Script가 일시적으로 정상 응답하지 않았습니다.',
-  });
-}
-
-if (!response.ok || !data.success) {
-      return res.status(500).json({
+    if (
+      !verifyResponse.ok ||
+      verifyData?.success !== true ||
+      verifyData?.authenticated !== true
+    ) {
+      return res.status(401).json({
         success: false,
-        message: data.message || '관리자 비밀번호 저장에 실패했습니다.',
+        message: '현재 관리자 비밀번호가 일치하지 않습니다.',
       });
     }
 
-    res.json({
+    const saveResponse = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'saveAdminPassword',
+        password: newPassword,
+        adminToken,
+      }),
+    });
+
+    const data = await saveResponse.json().catch(() => ({}));
+
+    if (!saveResponse.ok || data?.success !== true) {
+      return res.status(500).json({
+        success: false,
+        message: data?.message || '관리자 비밀번호 저장에 실패했습니다.',
+      });
+    }
+
+    return res.json({
       success: true,
       message: '관리자 비밀번호가 저장되었습니다.',
     });
   } catch (error: any) {
     console.error('관리자 비밀번호 저장 실패:', error);
-
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: '관리자 비밀번호 저장에 실패했습니다.',
     });
@@ -237,6 +410,8 @@ res.json({
 });
 app.get('/api/posts/:id/edit-history', async (req, res) => {
   try {
+    const adminToken = await requireAdminSession(req, res);
+    if (!adminToken) return;
     const gasUrl = getGasUrl();
 
     if (!gasUrl) {
@@ -289,6 +464,8 @@ app.get('/api/posts/:id/edit-history', async (req, res) => {
 
 app.get('/api/posts/:postId/comments/:commentId/edit-history', async (req, res) => {
   try {
+    const adminToken = await requireAdminSession(req, res);
+    if (!adminToken) return;
     const gasUrl = getGasUrl();
 
     if (!gasUrl) {
@@ -544,7 +721,16 @@ app.delete('/api/posts/:id', async (req, res) => {
       return res.status(500).json({ success: false, message: 'Google Apps Script 연결이 설정되지 않았습니다.' });
     }
 
-    const action = req.body?.isAdmin ? 'deletePost' : 'deletePostStudent';
+    const isAdminDelete = req.body?.isAdmin === true;
+    let adminToken = '';
+
+    if (isAdminDelete) {
+      const verifiedToken = await requireAdminSession(req, res);
+      if (!verifiedToken) return;
+      adminToken = verifiedToken;
+    }
+
+    const action = isAdminDelete ? 'deletePost' : 'deletePostStudent';
 
     const response = await fetch(gasUrl, {
       method: 'POST',
@@ -553,6 +739,7 @@ app.delete('/api/posts/:id', async (req, res) => {
         action,
         id: req.params.id,
         ...req.body,
+        adminToken,
       }),
     });
 
@@ -724,8 +911,17 @@ app.delete('/api/posts/:postId/comments/:commentId', async (req, res) => {
       });
     }
 
+    const isAdminDelete = req.body?.isAdmin === true;
+    let adminToken = '';
+
+    if (isAdminDelete) {
+      const verifiedToken = await requireAdminSession(req, res);
+      if (!verifiedToken) return;
+      adminToken = verifiedToken;
+    }
+
     const action =
-      req.body?.isAdmin === true
+      isAdminDelete
         ? 'deleteCommentAdmin'
         : 'deleteCommentStudent';
 
@@ -737,6 +933,7 @@ app.delete('/api/posts/:postId/comments/:commentId', async (req, res) => {
         id: req.params.postId,
         commentId: req.params.commentId,
         password: req.body?.password || '',
+        adminToken,
       }),
     });
 
@@ -895,6 +1092,8 @@ const gasUrl = getGasUrl();
 
 app.post('/api/roster', async (req, res) => {
   try {
+    const adminToken = await requireAdminSession(req, res);
+    if (!adminToken) return;
     const { students } = req.body;
 
     if (!Array.isArray(students)) {
@@ -937,6 +1136,7 @@ const gasUrl = getGasUrl();
       body: JSON.stringify({
         action: 'saveRoster',
         students: normalizedStudents,
+        adminToken,
       }),
     });
 
@@ -966,11 +1166,16 @@ const gasUrl = getGasUrl();
   }
 });
 // 5. GAS Web App Configuration & Webhook Proxy
-app.get('/api/gas/config', (req, res) => {
+app.get('/api/gas/config', async (req, res) => {
+  const adminToken = await requireAdminSession(req, res);
+  if (!adminToken) return;
   res.json(gasConfigStore);
 });
 
-app.post('/api/gas/config', (req, res) => {
+app.post('/api/gas/config', async (req, res) => {
+  const adminToken = await requireAdminSession(req, res);
+  if (!adminToken) return;
+
   const { webAppUrl, adminEmail, sheetName, autoEmailAlert } = req.body;
   if (webAppUrl !== undefined) gasConfigStore.webAppUrl = String(webAppUrl).trim();
   if (adminEmail !== undefined) gasConfigStore.adminEmail = String(adminEmail).trim();
@@ -981,6 +1186,9 @@ app.post('/api/gas/config', (req, res) => {
 });
 
 app.post('/api/gas/test-webhook', async (req, res) => {
+  const adminToken = await requireAdminSession(req, res);
+  if (!adminToken) return;
+
   const { webAppUrl } = req.body;
   const targetUrl = webAppUrl || gasConfigStore.webAppUrl;
 
@@ -1016,6 +1224,9 @@ app.post('/api/gas/test-webhook', async (req, res) => {
 
 // Full Batch GAS Sync Proxy (bypasses browser CORS and sends photos to Google Sheets)
 app.post('/api/gas/sync', async (req, res) => {
+  const adminToken = await requireAdminSession(req, res);
+  if (!adminToken) return;
+
   const { webAppUrl, sheetName, posts } = req.body;
   const targetUrl = webAppUrl || gasConfigStore.webAppUrl;
 
@@ -1058,7 +1269,10 @@ app.get('/api/challenges', (req, res) => {
   res.json({ challenges: challengesStore });
 });
 
-app.put('/api/challenges', (req, res) => {
+app.put('/api/challenges', async (req, res) => {
+  const adminToken = await requireAdminSession(req, res);
+  if (!adminToken) return;
+
   const { challenges } = req.body;
   if (Array.isArray(challenges)) {
     challengesStore.length = 0;
@@ -1067,7 +1281,10 @@ app.put('/api/challenges', (req, res) => {
   res.json({ success: true, challenges: challengesStore });
 });
 
-app.post('/api/challenges/reset', (req, res) => {
+app.post('/api/challenges/reset', async (req, res) => {
+  const adminToken = await requireAdminSession(req, res);
+  if (!adminToken) return;
+
   challengesStore.length = 0;
   challengesStore.push(...CHALLENGE_MONTHS);
   res.json({ success: true, challenges: challengesStore });
