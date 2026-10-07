@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
 import { Post, StudentRosterItem, GasConfig, ChallengeMonthInfo } from './src/types.js';
-import { postsStore, rosterStore, challengesStore, gasConfigStore, syncPostToGas } from './src/lib/serverStore.js';
+import { postsStore, rosterStore, challengesStore, gasConfigStore } from './src/lib/serverStore.js';
 import { CHALLENGE_MONTHS } from './src/data/challenges.js';
 
 dotenv.config();
@@ -13,6 +13,53 @@ const getGasUrl = () =>
   gasConfigStore.webAppUrl ||
   process.env.GAS_WEB_APP_URL ||
   '';
+
+const syncPostToGas = async (post: Post): Promise<boolean> => {
+  const gasUrl = getGasUrl();
+  if (!gasUrl) return false;
+
+  try {
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'submitPost',
+        sheetName: gasConfigStore.sheetName || '독서챌린지_기록',
+        post: {
+          id: post.id,
+          grade: post.grade,
+          classNum: post.classNum,
+          studentNum: post.studentNum,
+          studentName: post.studentName,
+          bookTitle: post.bookTitle,
+          bookAuthor: post.bookAuthor || '',
+          content: post.content,
+          imageUrl: post.imageUrl || '',
+          referenceImageUrl: post.referenceImageUrl || '',
+          month: post.month,
+          challengeTitle: post.challengeTitle || '',
+          likes: post.likes || 0,
+          comments: post.comments || [],
+          createdAt: post.createdAt,
+          password: post.password || '',
+        },
+        adminEmail: gasConfigStore.adminEmail,
+        sendEmail: gasConfigStore.autoEmailAlert,
+      }),
+    });
+
+    if (!response.ok) return false;
+
+    const data = await response.json().catch(() => ({}));
+    if (data?.success !== true) return false;
+
+    post.syncedToGas = true;
+    return true;
+  } catch (error) {
+    console.warn('Google Apps Script sync failed:', error);
+    return false;
+  }
+};
 
 const ADMIN_COOKIE_NAME = 'reading_admin_session';
 const ADMIN_COOKIE_MAX_AGE = 12 * 60 * 60;
