@@ -370,6 +370,7 @@ const gasUrl = getGasUrl();
 
     const postsWithImageUrls = list.map((p: Post) => {
   const rawImageUrl = String(p.imageUrl || '');
+  const rawReferenceImageUrl = String(p.referenceImageUrl || '');
   const match = String(p.id).match(/^gas-row-(\d+)$/);
 
   // 새 방식: GAS가 Drive의 일반 URL을 반환하면 브라우저가
@@ -378,6 +379,9 @@ const gasUrl = getGasUrl();
     return {
       ...p,
       imageUrl: rawImageUrl,
+      referenceImageUrl: /^https?:\/\//i.test(rawReferenceImageUrl)
+        ? rawReferenceImageUrl
+        : '',
     };
   }
 
@@ -389,6 +393,9 @@ const gasUrl = getGasUrl();
       rawImageUrl && match
         ? `/api/posts/${match[1]}/image`
         : '',
+    referenceImageUrl: /^https?:\/\//i.test(rawReferenceImageUrl)
+      ? rawReferenceImageUrl
+      : '',
   };
 });
 
@@ -624,6 +631,7 @@ app.post('/api/posts', async (req, res) => {
       bookAuthor: postData.bookAuthor ? String(postData.bookAuthor).trim() : undefined,
       content: String(postData.content).trim(),
       imageUrl: postData.imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
+      referenceImageUrl: postData.referenceImageUrl || '',
       month: targetMonth,
       challengeTitle: postData.challengeTitle || '첫문장 챌린지',
       likes: 0,
