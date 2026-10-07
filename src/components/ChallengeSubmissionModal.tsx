@@ -49,9 +49,12 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
   const [content, setContent] = useState<string>('');
   const [imageUrl, setImageUrl] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [referenceImageUrl, setReferenceImageUrl] = useState<string>('');
+  const [referenceImagePreview, setReferenceImagePreview] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const referenceFileInputRef = useRef<HTMLInputElement>(null);
 
   const activeMonth = targetMonth || 9;
   const currentChallenge =
@@ -70,13 +73,18 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
       setContent('');
       setImageUrl('');
       setImagePreview('');
+      setReferenceImageUrl('');
+      setReferenceImagePreview('');
     }
   }, [isOpen, activeMonth]);
 
   if (!isOpen) return null;
 
   // Handle Image Upload & Compression
-  const handleImageFile = (file: File) => {
+  const compressImageFile = (
+    file: File,
+    onDone: (compressedDataUrl: string) => void
+  ) => {
     if (!file.type.startsWith('image/')) {
       onErrorToast('이미지 파일 오류', 'JPG, PNG, WebP 등 이미지 파일만 업로드할 수 있습니다.');
       return;
@@ -89,40 +97,55 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
       img.src = result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
+        const MAX_WIDTH = 700;
+        const MAX_HEIGHT = 700;
         let width = img.width;
         let height = img.height;
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
+        if (width > height && width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        } else if (height >= width && height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
         }
 
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.78);
-        setImagePreview(compressedDataUrl);
-        setImageUrl(compressedDataUrl);
+        onDone(canvas.toDataURL('image/jpeg', 0.68));
       };
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleImageFile = (file: File) => {
+    compressImageFile(file, (compressedDataUrl) => {
+      setImagePreview(compressedDataUrl);
+      setImageUrl(compressedDataUrl);
+    });
+  };
+
+  const handleReferenceImageFile = (file: File) => {
+    compressImageFile(file, (compressedDataUrl) => {
+      setReferenceImagePreview(compressedDataUrl);
+      setReferenceImageUrl(compressedDataUrl);
+    });
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleImageFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleReferenceDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleReferenceImageFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -171,6 +194,7 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
   bookAuthor: bookAuthor.trim() || undefined,
   content: content.trim(),
   imageUrl,
+  referenceImageUrl,
   month: activeMonth,
   challengeTitle: currentChallenge.title,
   password: password.trim(),
@@ -474,6 +498,54 @@ onClose();
                   type="file"
                   accept="image/*"
                   onChange={(e) => e.target.files?.[0] && handleImageFile(e.target.files[0])}
+                  className="hidden"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Optional second photo: original book cover / comparison image */}
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-black uppercase tracking-wider">
+              원본 책 표지 사진 <span className="text-slate-500">(선택)</span>
+            </label>
+            <p className="text-[11px] font-bold text-slate-500">
+              10월 책표지 따라하기처럼 원본과 인증샷을 비교하고 싶을 때 올려주세요.
+            </p>
+
+            {referenceImagePreview ? (
+              <div className="relative aspect-16/9 rounded-2xl overflow-hidden bg-black border-2 border-black">
+                <img src={referenceImagePreview} alt="원본 책 표지 미리보기" className="w-full h-full object-contain" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReferenceImagePreview('');
+                    setReferenceImageUrl('');
+                  }}
+                  className="absolute top-3 right-3 bg-white text-black p-2 rounded-xl text-xs font-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1 transition"
+                >
+                  <X className="w-4 h-4" />
+                  <span>사진 바꾸기</span>
+                </button>
+              </div>
+            ) : (
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleReferenceDrop}
+                onClick={() => referenceFileInputRef.current?.click()}
+                className="border-3 border-dashed border-slate-400 hover:border-black hover:bg-slate-50 rounded-2xl p-5 text-center cursor-pointer transition space-y-2"
+              >
+                <div className="w-11 h-11 rounded-xl bg-white text-black border-2 border-black flex items-center justify-center mx-auto shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <p className="text-xs sm:text-sm font-black text-black">
+                  원본 책 표지 사진 추가하기
+                </p>
+                <input
+                  ref={referenceFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => e.target.files?.[0] && handleReferenceImageFile(e.target.files[0])}
                   className="hidden"
                 />
               </div>
