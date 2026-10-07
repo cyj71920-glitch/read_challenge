@@ -493,16 +493,16 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   {post.referenceImageUrl && (
                     <div
                       className="relative aspect-4/3 bg-black overflow-hidden cursor-pointer border-l-2 border-black"
-                      onClick={() => onSelectImageZoom(post.referenceImageUrl || '', `${post.studentName} - ${post.bookTitle} 원본 표지`)}
+                      onClick={() => onSelectImageZoom(post.referenceImageUrl || '', `${post.studentName} - ${post.bookTitle} ${post.month === 11 ? '제시어 인증사진 2' : '원본 표지'}`)}
                     >
                       <img
                         src={post.referenceImageUrl}
-                        alt={`${post.bookTitle} 원본 책 표지`}
+                        alt={`${post.bookTitle} ${post.month === 11 ? '제시어 인증사진 2' : '원본 책 표지'}`}
                         className="w-full h-full object-cover hover:scale-105 transition duration-300"
                         loading="lazy"
                       />
                       <div className="absolute bottom-2 left-2 bg-[#FFD100] text-black text-[10px] font-black px-2 py-1 rounded-lg border border-black">
-                        원본 표지
+                        {post.month === 11 ? '인증사진 2' : '원본 표지'}
                       </div>
                     </div>
                   )}
