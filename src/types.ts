@@ -52,7 +52,8 @@ export interface Post {
   bookTitle: string; // 도서명
   bookAuthor?: string; // 저자
   content: string; // 내용 및 소감
-  imageUrl: string; // 이미지 Data URL(Base64) 또는 이미지 링크 URL
+  imageUrl: string; // 챌린지 인증 사진 URL
+  referenceImageUrl?: string; // 원본 책 표지 등 비교용 두 번째 사진 URL
   month: number; // 챌린지 월 (9, 10, 11, 12)
   challengeTitle: string; // "첫문장 챌린지" 등
   likes: number;
@@ -75,6 +76,7 @@ export interface PostEditHistorySnapshot {
   bookAuthor: string;
   content: string;
   imageUrl: string;
+  referenceImageUrl?: string;
 }
 
 export interface PostEditHistoryItem {
