@@ -232,8 +232,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       onErrorToast('사진 필요', '챌린지 인증 사진을 등록해주세요.');
       return;
     }
-    if (post.month === 11 && !referenceImageUrl) {
-      onErrorToast('두 번째 사진 필요', '11월 보물찾기 챌린지는 제시어 인증사진 2장이 필요합니다.');
+    if (post.month === 12 && !referenceImageUrl) {
+      onErrorToast('두 번째 사진 필요', '12월 보물찾기 챌린지는 제시어 인증사진 2장이 필요합니다.');
       return;
     }
     if (changePassword && (!newPassword || !/^\d{4}$/.test(newPassword))) {
@@ -602,8 +602,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
             {/* Optional second photo */}
             <div className="space-y-2">
               <label className="block text-xs font-black text-black uppercase tracking-wider">
-                {post.month === 11 ? '제시어 인증사진 2 변경' : '원본 책 표지 사진 변경'}{' '}
-                {post.month === 11 ? (
+                {post.month === 12 ? '제시어 인증사진 2 변경' : '원본 책 표지 사진 변경'}{' '}
+                {post.month === 12 ? (
                   <span className="text-red-500">*</span>
                 ) : (
                   <span className="text-slate-500">(선택)</span>
@@ -612,7 +612,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
 
               {referenceImagePreview ? (
                 <div className="relative aspect-16/9 rounded-2xl overflow-hidden bg-black border-2 border-black">
-                  <img src={referenceImagePreview} alt={post.month === 11 ? '제시어 인증사진 2 미리보기' : '원본 책 표지 미리보기'} className="w-full h-full object-contain" />
+                  <img src={referenceImagePreview} alt={post.month === 12 ? '제시어 인증사진 2 미리보기' : '원본 책 표지 미리보기'} className="w-full h-full object-contain" />
                   <div className="absolute top-3 right-3 flex gap-2">
                     <button
                       type="button"
@@ -641,7 +641,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                   className="border-3 border-dashed border-slate-400 hover:border-black hover:bg-slate-50 rounded-2xl p-5 text-center cursor-pointer transition"
                 >
                   <p className="text-xs sm:text-sm font-black text-black">
-                    {post.month === 11 ? '제시어 인증사진 2 추가하기' : '원본 책 표지 사진 추가하기'}
+                    {post.month === 12 ? '제시어 인증사진 2 추가하기' : '원본 책 표지 사진 추가하기'}
                   </p>
                 </div>
               )}
