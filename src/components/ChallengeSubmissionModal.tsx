@@ -61,7 +61,8 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
     (challenges || CHALLENGE_MONTHS).find((m) => m.month === activeMonth) || CHALLENGE_MONTHS[0];
   const statusInfo = getChallengeMonthStatus(currentChallenge);
 
-  const isNovemberTreasureHunt = activeMonth === 11;
+  const isNovemberCopywork = activeMonth === 11;
+  const isDecemberTreasureHunt = activeMonth === 12;
   const treasureWordsByGrade: Record<number, string[]> = {
     2: ['친구', '비밀', '약속', '승부', '문제', '용기', '실수', '기회'],
     3: ['미래', '선택', '시작', '길', '꿈', '변화', '시간', '사람'],
@@ -189,8 +190,8 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
       onErrorToast('사진 업로드 필요', '챌린지 인증 사진을 업로드해주세요.');
       return;
     }
-    if (isNovemberTreasureHunt && !referenceImageUrl) {
-      onErrorToast('두 번째 사진 필요', '11월 보물찾기 챌린지는 제시어 인증사진을 2장 올려주세요.');
+    if (isDecemberTreasureHunt && !referenceImageUrl) {
+      onErrorToast('두 번째 사진 필요', '12월 보물찾기 챌린지는 제시어 인증사진을 2장 올려주세요.');
       return;
     }
 
@@ -376,7 +377,19 @@ onClose();
             </div>
           </div>
 
-          {isNovemberTreasureHunt && (
+          {isNovemberCopywork && (
+            <div className="bg-sky-50 p-4 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] space-y-2">
+              <h3 className="text-sm font-black text-black">✍️ 한 줄 필사 포인트</h3>
+              <p className="text-xs font-bold text-slate-700">
+                책에서 마음에 드는 문장 한 줄을 골라, 글자 크기와 간격을 맞추며 천천히 또박또박 따라 써보세요.
+              </p>
+              <p className="text-[11px] font-bold text-sky-700">
+                화려하게 꾸미기보다 정갈하고 정성스럽게 쓰는 것이 가장 중요합니다.
+              </p>
+            </div>
+          )}
+
+          {isDecemberTreasureHunt && (
             <div className="bg-rose-50 p-4 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] space-y-2">
               <h3 className="text-sm font-black text-black">🔎 {grade}학년 보물찾기 제시어</h3>
               {grade === 1 ? (
@@ -495,7 +508,7 @@ onClose();
           {/* 3. Photo Upload Area */}
           <div className="space-y-2">
             <label className="block text-xs font-black text-black uppercase tracking-wider">
-              {isNovemberTreasureHunt ? '제시어 인증사진 1' : `${activeMonth}월 챌린지 인증 사진 업로드`} <span className="text-red-500">*</span>
+              {isDecemberTreasureHunt ? '제시어 인증사진 1' : isNovemberCopywork ? '필사 작품 사진 업로드' : `${activeMonth}월 챌린지 인증 사진 업로드`} <span className="text-red-500">*</span>
             </label>
 
             {imagePreview ? (
@@ -543,25 +556,25 @@ onClose();
           </div>
 
           {/* Second photo: 10월 원본 표지 / 11월 두 번째 제시어 인증 */}
-          {(activeMonth === 10 || activeMonth === 11) && (
+          {(activeMonth === 10 || activeMonth === 12) && (
           <div className="space-y-2">
             <label className="block text-xs font-black text-black uppercase tracking-wider">
-              {isNovemberTreasureHunt ? '제시어 인증사진 2' : '원본 책 표지 사진'}{' '}
-              {isNovemberTreasureHunt ? (
+              {isDecemberTreasureHunt ? '제시어 인증사진 2' : '원본 책 표지 사진'}{' '}
+              {isDecemberTreasureHunt ? (
                 <span className="text-red-500">*</span>
               ) : (
                 <span className="text-slate-500">(선택)</span>
               )}
             </label>
             <p className="text-[11px] font-bold text-slate-500">
-              {isNovemberTreasureHunt
+              {isDecemberTreasureHunt
                 ? '두 번째로 찾은 제시어가 보이도록 사진을 올려주세요.'
                 : '10월 책표지 따라하기처럼 원본과 인증샷을 비교하고 싶을 때 올려주세요.'}
             </p>
 
             {referenceImagePreview ? (
               <div className="relative aspect-16/9 rounded-2xl overflow-hidden bg-black border-2 border-black">
-                <img src={referenceImagePreview} alt={isNovemberTreasureHunt ? '제시어 인증사진 2 미리보기' : '원본 책 표지 미리보기'} className="w-full h-full object-contain" />
+                <img src={referenceImagePreview} alt={isDecemberTreasureHunt ? '제시어 인증사진 2 미리보기' : '원본 책 표지 미리보기'} className="w-full h-full object-contain" />
                 <button
                   type="button"
                   onClick={() => {
@@ -585,7 +598,7 @@ onClose();
                   <Upload className="w-5 h-5" />
                 </div>
                 <p className="text-xs sm:text-sm font-black text-black">
-                  {isNovemberTreasureHunt ? '제시어 인증사진 2 추가하기' : '원본 책 표지 사진 추가하기'}
+                  {isDecemberTreasureHunt ? '제시어 인증사진 2 추가하기' : '원본 책 표지 사진 추가하기'}
                 </p>
                 <input
                   ref={referenceFileInputRef}
@@ -608,7 +621,7 @@ onClose();
               id="input-content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={isNovemberTreasureHunt ? '찾은 제시어와 책 속 문장, 쪽수 또는 짧은 소감을 적어주세요.' : '첫 문장 인용, 사진을 찍은 이유, 책에 대한 감상평 등을 자유롭게 적어주세요...'}
+              placeholder={isDecemberTreasureHunt ? '찾은 제시어와 책 속 문장, 쪽수 또는 짧은 소감을 적어주세요.' : isNovemberCopywork ? '이 문장을 고른 이유를 짧게 적어주세요.' : '첫 문장 인용, 사진을 찍은 이유, 책에 대한 감상평 등을 자유롭게 적어주세요...'}
               rows={3}
               className="w-full px-3.5 py-2.5 rounded-xl border-2 border-black bg-white text-xs sm:text-sm font-bold focus:ring-2 focus:ring-[#FFD100] leading-relaxed"
               required
