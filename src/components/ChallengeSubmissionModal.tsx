@@ -61,6 +61,13 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
     (challenges || CHALLENGE_MONTHS).find((m) => m.month === activeMonth) || CHALLENGE_MONTHS[0];
   const statusInfo = getChallengeMonthStatus(currentChallenge);
 
+  const isNovemberTreasureHunt = activeMonth === 11;
+  const treasureWordsByGrade: Record<number, string[]> = {
+    2: ['친구', '비밀', '약속', '승부', '문제', '용기', '실수', '기회'],
+    3: ['미래', '선택', '시작', '길', '꿈', '변화', '시간', '사람'],
+  };
+  const treasureWords = treasureWordsByGrade[grade] || [];
+
   // Reset form when reopened
   useEffect(() => {
     if (isOpen) {
@@ -180,6 +187,10 @@ export const ChallengeSubmissionModal: React.FC<ChallengeSubmissionModalProps> =
     }
     if (!imageUrl) {
       onErrorToast('사진 업로드 필요', '챌린지 인증 사진을 업로드해주세요.');
+      return;
+    }
+    if (isNovemberTreasureHunt && !referenceImageUrl) {
+      onErrorToast('두 번째 사진 필요', '11월 보물찾기 챌린지는 제시어 인증사진을 2장 올려주세요.');
       return;
     }
 
@@ -365,6 +376,33 @@ onClose();
             </div>
           </div>
 
+          {isNovemberTreasureHunt && (
+            <div className="bg-rose-50 p-4 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] space-y-2">
+              <h3 className="text-sm font-black text-black">🔎 {grade}학년 보물찾기 제시어</h3>
+              {grade === 1 ? (
+                <>
+                  <p className="text-xs font-black text-rose-700">1학년 제시어는 반별로 따로 공개합니다.</p>
+                  <p className="text-xs font-bold text-slate-700">
+                    우리 반에 안내된 제시어 2개를 책 속에서 찾아, 단어가 또렷하게 보이도록 각각 인증사진을 찍어주세요.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {treasureWords.map((word) => (
+                      <span key={word} className="px-2.5 py-1 bg-white border-2 border-black rounded-lg text-xs font-black">
+                        {word}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs font-bold text-slate-700">
+                    위 제시어 중 2개 이상을 책에서 찾아 인증사진 2장을 올려주세요. 한 사진에 여러 제시어가 보여도 괜찮습니다.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
           {/* 2. Post Edit Password (4-digit PIN for Student Self-Edit) */}
           <div className="bg-[#FEF3C7] p-4 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] space-y-2">
             <div className="flex items-center justify-between">
@@ -457,7 +495,7 @@ onClose();
           {/* 3. Photo Upload Area */}
           <div className="space-y-2">
             <label className="block text-xs font-black text-black uppercase tracking-wider">
-              {activeMonth}월 챌린지 인증 사진 업로드 <span className="text-red-500">*</span>
+              {isNovemberTreasureHunt ? '제시어 인증사진 1' : `${activeMonth}월 챌린지 인증 사진 업로드`} <span className="text-red-500">*</span>
             </label>
 
             {imagePreview ? (
@@ -504,18 +542,26 @@ onClose();
             )}
           </div>
 
-          {/* Optional second photo: original book cover / comparison image */}
+          {/* Second photo: 10월 원본 표지 / 11월 두 번째 제시어 인증 */}
+          {(activeMonth === 10 || activeMonth === 11) && (
           <div className="space-y-2">
             <label className="block text-xs font-black text-black uppercase tracking-wider">
-              원본 책 표지 사진 <span className="text-slate-500">(선택)</span>
+              {isNovemberTreasureHunt ? '제시어 인증사진 2' : '원본 책 표지 사진'}{' '}
+              {isNovemberTreasureHunt ? (
+                <span className="text-red-500">*</span>
+              ) : (
+                <span className="text-slate-500">(선택)</span>
+              )}
             </label>
             <p className="text-[11px] font-bold text-slate-500">
-              10월 책표지 따라하기처럼 원본과 인증샷을 비교하고 싶을 때 올려주세요.
+              {isNovemberTreasureHunt
+                ? '두 번째로 찾은 제시어가 보이도록 사진을 올려주세요.'
+                : '10월 책표지 따라하기처럼 원본과 인증샷을 비교하고 싶을 때 올려주세요.'}
             </p>
 
             {referenceImagePreview ? (
               <div className="relative aspect-16/9 rounded-2xl overflow-hidden bg-black border-2 border-black">
-                <img src={referenceImagePreview} alt="원본 책 표지 미리보기" className="w-full h-full object-contain" />
+                <img src={referenceImagePreview} alt={isNovemberTreasureHunt ? '제시어 인증사진 2 미리보기' : '원본 책 표지 미리보기'} className="w-full h-full object-contain" />
                 <button
                   type="button"
                   onClick={() => {
@@ -539,7 +585,7 @@ onClose();
                   <Upload className="w-5 h-5" />
                 </div>
                 <p className="text-xs sm:text-sm font-black text-black">
-                  원본 책 표지 사진 추가하기
+                  {isNovemberTreasureHunt ? '제시어 인증사진 2 추가하기' : '원본 책 표지 사진 추가하기'}
                 </p>
                 <input
                   ref={referenceFileInputRef}
@@ -551,6 +597,7 @@ onClose();
               </div>
             )}
           </div>
+          )}
 
           {/* 4. Content / Reflection */}
           <div className="space-y-1.5">
@@ -561,7 +608,7 @@ onClose();
               id="input-content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="첫 문장 인용, 사진을 찍은 이유, 책에 대한 감상평 등을 자유롭게 적어주세요..."
+              placeholder={isNovemberTreasureHunt ? '찾은 제시어와 책 속 문장, 쪽수 또는 짧은 소감을 적어주세요.' : '첫 문장 인용, 사진을 찍은 이유, 책에 대한 감상평 등을 자유롭게 적어주세요...'}
               rows={3}
               className="w-full px-3.5 py-2.5 rounded-xl border-2 border-black bg-white text-xs sm:text-sm font-bold focus:ring-2 focus:ring-[#FFD100] leading-relaxed"
               required
