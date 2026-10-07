@@ -56,6 +56,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
   const [content, setContent] = useState<string>('');
   const [imageUrl, setImageUrl] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [referenceImageUrl, setReferenceImageUrl] = useState<string>('');
+  const [referenceImagePreview, setReferenceImagePreview] = useState<string>('');
   const [changePassword, setChangePassword] = useState<boolean>(false);
   const [newPassword, setNewPassword] = useState<string>('');
   const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
@@ -64,6 +66,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const referenceFileInputRef = useRef<HTMLInputElement>(null);
   const pinInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize modal state when opened
@@ -82,6 +85,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       setContent(post.content);
       setImageUrl(post.imageUrl);
       setImagePreview(post.imageUrl);
+      setReferenceImageUrl(post.referenceImageUrl || '');
+      setReferenceImagePreview(post.referenceImageUrl || '');
       setChangePassword(false);
       setNewPassword('');
       setShowNewPassword(false);
@@ -135,7 +140,10 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
   };
 
   // Handle image replacement & compression
-  const handleImageFile = (file: File) => {
+  const compressImageFile = (
+    file: File,
+    onDone: (compressedDataUrl: string) => void
+  ) => {
     if (!file.type.startsWith('image/')) {
       onErrorToast('이미지 파일 오류', 'JPG, PNG, WebP 등 이미지 파일만 업로드할 수 있습니다.');
       return;
@@ -148,40 +156,55 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       img.src = result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
+        const MAX_WIDTH = 700;
+        const MAX_HEIGHT = 700;
         let width = img.width;
         let height = img.height;
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
+        if (width > height && width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        } else if (height >= width && height > MAX_HEIGHT) {
+          width *= MAX_HEIGHT / height;
+          height = MAX_HEIGHT;
         }
 
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.78);
-        setImagePreview(compressedDataUrl);
-        setImageUrl(compressedDataUrl);
+        onDone(canvas.toDataURL('image/jpeg', 0.68));
       };
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleImageFile = (file: File) => {
+    compressImageFile(file, (compressedDataUrl) => {
+      setImagePreview(compressedDataUrl);
+      setImageUrl(compressedDataUrl);
+    });
+  };
+
+  const handleReferenceImageFile = (file: File) => {
+    compressImageFile(file, (compressedDataUrl) => {
+      setReferenceImagePreview(compressedDataUrl);
+      setReferenceImageUrl(compressedDataUrl);
+    });
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleImageFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleReferenceDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleReferenceImageFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -225,6 +248,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
         bookAuthor: bookAuthor.trim(),
         content: content.trim(),
         imageUrl,
+        referenceImageUrl,
       };
 
       if (changePassword && newPassword) {
@@ -567,6 +591,57 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                 type="file"
                 accept="image/*"
                 onChange={(e) => e.target.files?.[0] && handleImageFile(e.target.files[0])}
+                className="hidden"
+              />
+            </div>
+
+            {/* Optional second photo */}
+            <div className="space-y-2">
+              <label className="block text-xs font-black text-black uppercase tracking-wider">
+                원본 책 표지 사진 변경 <span className="text-slate-500">(선택)</span>
+              </label>
+
+              {referenceImagePreview ? (
+                <div className="relative aspect-16/9 rounded-2xl overflow-hidden bg-black border-2 border-black">
+                  <img src={referenceImagePreview} alt="원본 책 표지 미리보기" className="w-full h-full object-contain" />
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => referenceFileInputRef.current?.click()}
+                      className="bg-[#FFD100] text-black px-3 py-2 rounded-xl text-xs font-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                    >
+                      사진 교체
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReferenceImagePreview('');
+                        setReferenceImageUrl('');
+                      }}
+                      className="bg-white text-red-600 px-3 py-2 rounded-xl text-xs font-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleReferenceDrop}
+                  onClick={() => referenceFileInputRef.current?.click()}
+                  className="border-3 border-dashed border-slate-400 hover:border-black hover:bg-slate-50 rounded-2xl p-5 text-center cursor-pointer transition"
+                >
+                  <p className="text-xs sm:text-sm font-black text-black">
+                    원본 책 표지 사진 추가하기
+                  </p>
+                </div>
+              )}
+
+              <input
+                ref={referenceFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => e.target.files?.[0] && handleReferenceImageFile(e.target.files[0])}
                 className="hidden"
               />
             </div>
