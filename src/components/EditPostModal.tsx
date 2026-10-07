@@ -599,7 +599,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
               />
             </div>
 
-            {/* Optional second photo */}
+            {/* Optional second photo: 10월 원본 표지 / 12월 보물찾기 인증사진 2 */}
+            {(post.month === 10 || post.month === 12) && (
             <div className="space-y-2">
               <label className="block text-xs font-black text-black uppercase tracking-wider">
                 {post.month === 12 ? '제시어 인증사진 2 변경' : '원본 책 표지 사진 변경'}{' '}
@@ -654,6 +655,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                 className="hidden"
               />
             </div>
+            )}
 
             {/* 4. Content / Reflection */}
             <div className="space-y-1.5">
@@ -664,7 +666,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                 id="edit-input-content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="첫 문장 인용, 사진을 찍은 이유, 책에 대한 감상평 등을 작성해주세요..."
+                placeholder={post.month === 11 ? '이 문장을 고른 이유를 짧게 적어주세요.' : post.month === 12 ? '찾은 제시어와 책 속 문장, 쪽수 또는 짧은 소감을 적어주세요.' : '첫 문장 인용, 사진을 찍은 이유, 책에 대한 감상평 등을 작성해주세요...'}
                 rows={4}
                 className="w-full px-3.5 py-2.5 rounded-xl border-2 border-black bg-white text-xs sm:text-sm font-bold focus:ring-2 focus:ring-[#FFD100] leading-relaxed"
                 required
