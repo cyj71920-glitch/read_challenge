@@ -1089,6 +1089,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {editMissionDesc || '미션 설명이 여기에 표시됩니다.'}
                   </p>
 
+                  {selectedEditMonth === 12 && (
+                    <div className="bg-rose-50 p-3 rounded-xl border-2 border-rose-200 space-y-2">
+                      <span className="text-[11px] font-black text-black block">🔎 학년별 보물찾기 제시어</span>
+                      <div className="space-y-2">
+                        <div className="bg-white p-2.5 rounded-lg border border-rose-200">
+                          <p className="text-[10px] font-black text-rose-700">1학년</p>
+                          <p className="text-[10px] font-bold text-slate-700 mt-0.5">제시어 2개를 반별로 따로 공개합니다.</p>
+                        </div>
+                        <div className="bg-white p-2.5 rounded-lg border border-rose-200">
+                          <p className="text-[10px] font-black text-rose-700 mb-1">2학년 · 아래에서 2개 이상 찾기</p>
+                          <div className="flex flex-wrap gap-1">
+                            {['친구', '비밀', '약속', '승부', '문제', '용기', '실수', '기회'].map((word) => (
+                              <span key={word} className="px-1.5 py-0.5 rounded bg-rose-100 text-[10px] font-black text-slate-800">{word}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-white p-2.5 rounded-lg border border-rose-200">
+                          <p className="text-[10px] font-black text-rose-700 mb-1">3학년 · 아래에서 2개 이상 찾기</p>
+                          <div className="flex flex-wrap gap-1">
+                            {['미래', '선택', '시작', '길', '꿈', '변화', '시간', '사람'].map((word) => (
+                              <span key={word} className="px-1.5 py-0.5 rounded bg-rose-100 text-[10px] font-black text-slate-800">{word}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Tips list */}
                   {editTips.some((t) => t.trim()) && (
                     <div className="space-y-1 text-[11px] text-slate-600 font-bold bg-[#FFFBEB] p-2.5 rounded-xl border border-black/20">
