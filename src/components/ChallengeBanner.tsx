@@ -47,88 +47,64 @@ export const ChallengeBanner: React.FC<ChallengeBannerProps> = ({
     }
   };
 
-  // 1. UPCOMING / LOCKED STATE (미션 내용은 미리 공개, 제출만 잠금)
+  // 1. UPCOMING / LOCKED STATE (Before the 1st of that month)
   if (effectiveStatus === 'upcoming') {
     return (
       <div
         id="challenge-locked-banner"
         className="rounded-[2rem] bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-6 sm:p-7 relative overflow-hidden h-full flex flex-col justify-between"
       >
-        <div className="space-y-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-slate-800 text-[#FFD100] border-2 border-black">
-              <Lock className="w-3.5 h-3.5" />
-              {challenge.month}월 챌린지 (미리보기)
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-[#FFD100] text-black border-2 border-black">
-              <Clock className="w-3.5 h-3.5 text-[#FF6B00]" />
-              참여 시작: {statusInfo.dateRangeText}
-            </span>
-          </div>
-
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-black">
-              {challenge.month}월 챌린지 : &lt;{challenge.title}&gt;
-            </h2>
-            <p className="text-sm sm:text-base font-extrabold text-[#FF6B00] mt-1">
-              {challenge.subtitle}
-            </p>
-          </div>
-
-          <div className="bg-[#FFFBEB] p-4 sm:p-5 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-            <p className="text-xs sm:text-sm font-bold text-slate-800 leading-relaxed">
-              {challenge.missionDescription}
-            </p>
-          </div>
-
-          {challenge.month === 12 && (
-            <div className="bg-rose-50 p-4 sm:p-5 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] space-y-3">
-              <p className="text-sm font-black text-black">🔎 학년별 보물찾기 제시어</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="bg-white p-3 rounded-xl border-2 border-black">
-                  <p className="text-xs font-black text-rose-700 mb-1">1학년</p>
-                  <p className="text-xs font-bold text-slate-700">제시어 2개를 반별로 따로 공개합니다.</p>
-                </div>
-                <div className="bg-white p-3 rounded-xl border-2 border-black">
-                  <p className="text-xs font-black text-rose-700 mb-2">2학년 · 아래에서 2개 이상 찾기</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['친구', '비밀', '약속', '승부', '문제', '용기', '실수', '기회'].map((word) => (
-                      <span key={word} className="px-2 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-[11px] font-black text-slate-800">{word}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-white p-3 rounded-xl border-2 border-black">
-                  <p className="text-xs font-black text-rose-700 mb-2">3학년 · 아래에서 2개 이상 찾기</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['미래', '선택', '시작', '길', '꿈', '변화', '시간', '사람'].map((word) => (
-                      <span key={word} className="px-2 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-[11px] font-black text-slate-800">{word}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <p className="text-[11px] font-bold text-slate-600">제시어가 보이는 책 페이지를 찾아 인증사진 2장을 올려주세요.</p>
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-center">
+          <div className="xl:col-span-8 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-slate-800 text-[#FFD100] border-2 border-black">
+                <Lock className="w-3.5 h-3.5" />
+                {challenge.month}월 챌린지 (공개 대기 중)
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-[#FFD100] text-black border-2 border-black">
+                <Clock className="w-3.5 h-3.5 text-[#FF6B00]" />
+                오픈 일정: {statusInfo.dateRangeText}
+              </span>
             </div>
-          )}
 
-          {challenge.tips && challenge.tips.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs sm:text-sm font-black text-black flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-[#4ADE80]" />
-                참여 방법
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-black flex items-center gap-3">
+                <span>🔒 {challenge.month}월 챌린지</span>
+              </h2>
+              <p className="text-sm sm:text-base font-extrabold text-[#FF6B00] mt-1">
+                {challenge.month}월 1일이 되면 어떤 신나는 독서 미션인지 전격 공개됩니다! 🎁
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {challenge.tips.map((tip, idx) => (
-                  <div key={idx} className="bg-white p-3.5 rounded-2xl border-2 border-black text-xs sm:text-sm font-black text-slate-800">
-                    <span className="text-[#FF6B00] mr-1">{idx + 1}.</span>
-                    {tip}
-                  </div>
-                ))}
+            </div>
+
+            <div className="bg-[#FFFBEB] p-4 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] space-y-2">
+              <p className="text-xs sm:text-sm font-bold text-slate-800 leading-relaxed">
+                {statusInfo.explanation} <br />
+                {challenge.month}월 챌린지가 열리기 전까지, 지금 오픈 중인 <strong>진행 중인 챌린지</strong>에 참여하여 우리 반 달리기 점수를 미리 올려보세요!
+              </p>
+            </div>
+          </div>
+
+          <div className="xl:col-span-4 bg-slate-900 rounded-3xl p-5 border-4 border-black text-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-center flex flex-col justify-between space-y-3">
+            <div className="space-y-1.5">
+              <div className="inline-flex p-2.5 rounded-2xl bg-[#FFD100] text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+                <Lock className="w-7 h-7 text-black" />
+              </div>
+              <h3 className="text-lg font-black text-white">{challenge.month}월 미션 비밀보관</h3>
+              <p className="text-xs font-bold text-slate-300">
+                {challenge.month}월 1일 00시에 자동 오픈됩니다!
+              </p>
+            </div>
+
+            <div className="py-2.5 px-3 rounded-2xl bg-slate-800 border-2 border-black text-white flex items-center justify-around">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400">오픈 일정</p>
+                <p className="text-sm font-black text-[#FFD100]">{challenge.month}월 1일 ~ 말일</p>
               </div>
             </div>
-          )}
 
-          <div className="py-3 px-4 text-xs sm:text-sm font-bold text-slate-600 bg-slate-100 rounded-xl border-2 border-slate-300 text-center">
-            🔒 미션 내용은 미리 볼 수 있지만, 글·사진 등록은 {challenge.month}월 1일부터 가능합니다.
+            <div className="py-2 text-xs font-bold text-slate-300 bg-slate-800/80 rounded-xl border border-slate-700">
+              🔒 {challenge.month}월 1일부터 글/사진 등록 가능
+            </div>
           </div>
         </div>
       </div>
