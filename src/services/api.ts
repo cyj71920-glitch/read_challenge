@@ -177,6 +177,7 @@ async getNewPosts(after: string, month?: number): Promise<Post[]> {
       bookAuthor: postData.bookAuthor ? postData.bookAuthor.trim() : undefined,
       content: (postData.content || '').trim(),
       imageUrl: postData.imageUrl || '',
+      referenceImageUrl: postData.referenceImageUrl || '',
       month: Number(postData.month) || 9,
       challengeTitle: postData.challengeTitle || '첫문장 챌린지',
       likes: 0,
