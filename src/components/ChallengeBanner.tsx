@@ -239,7 +239,7 @@ export const ChallengeBanner: React.FC<ChallengeBannerProps> = ({
           </p>
         </div>
 
-        {challenge.month === 11 && (
+        {challenge.month === 12 && (
           <div className="bg-rose-50 p-4 sm:p-5 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] space-y-3">
             <p className="text-sm font-black text-black">🔎 학년별 보물찾기 제시어</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
