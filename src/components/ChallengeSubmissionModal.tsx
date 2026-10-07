@@ -357,7 +357,7 @@ onClose();
                   type="text"
                   value={studentName}
                   onChange={(e) => setStudentName(e.target.value)}
-                  placeholder="예: 김민준"
+                  placeholder="예: 홍길동"
                   className="w-full px-3 py-2 rounded-xl border-2 border-black bg-white text-xs sm:text-sm font-black focus:ring-2 focus:ring-[#FFD100]"
                   required
                 />
