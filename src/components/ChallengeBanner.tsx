@@ -239,6 +239,35 @@ export const ChallengeBanner: React.FC<ChallengeBannerProps> = ({
           </p>
         </div>
 
+        {challenge.month === 11 && (
+          <div className="bg-rose-50 p-4 sm:p-5 rounded-2xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] space-y-3">
+            <p className="text-sm font-black text-black">🔎 학년별 보물찾기 제시어</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-white p-3 rounded-xl border-2 border-black">
+                <p className="text-xs font-black text-rose-700 mb-1">1학년</p>
+                <p className="text-xs font-bold text-slate-700">제시어 2개를 반별로 따로 공개합니다.</p>
+              </div>
+              <div className="bg-white p-3 rounded-xl border-2 border-black">
+                <p className="text-xs font-black text-rose-700 mb-2">2학년 · 아래에서 2개 이상 찾기</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {['친구', '비밀', '약속', '승부', '문제', '용기', '실수', '기회'].map((word) => (
+                    <span key={word} className="px-2 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-[11px] font-black text-slate-800">{word}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-xl border-2 border-black">
+                <p className="text-xs font-black text-rose-700 mb-2">3학년 · 아래에서 2개 이상 찾기</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {['미래', '선택', '시작', '길', '꿈', '변화', '시간', '사람'].map((word) => (
+                    <span key={word} className="px-2 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-[11px] font-black text-slate-800">{word}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <p className="text-[11px] font-bold text-slate-600">제시어가 보이는 책 페이지를 찾아 인증사진 2장을 올려주세요.</p>
+          </div>
+        )}
+
         {/* Tips / Rules (Screen 1 - 3 columns) */}
         {challenge.tips && challenge.tips.length > 0 && (
           <div className="space-y-2 pt-1">
